@@ -11,7 +11,9 @@
 # Both use Nmin = 4000 (see pbr_frick_bsh_dgy_thresholds.R for why) and
 # lambda_max derived from (s, alpha) via the Niel & Lebreton approximation,
 # with the paper's fixed lambda_max = 1.20/1.24 benchmarks and the current
-# BSH/DGY thresholds (144/120) overlaid as reference contours.
+# BSH/DGY thresholds (144/120) overlaid as reference contours. The alpha
+# range (1.5-3.5 years) follows the literature review in
+# references/alpha_first_breeding_evidence.md.
 # ============================================================
 
 suppressPackageStartupMessages({
@@ -38,7 +40,7 @@ Fr_scenarios <- c(0.1, 0.3, 0.5, 1.0)  # Vulnerable, Near Threatened,
 
 grid <- tidyr::expand_grid(
   s     = seq(0.70, 0.95, length.out = 60),
-  alpha = seq(2, 4, length.out = 60),
+  alpha = seq(1.5, 3.5, length.out = 60),
   Fr    = Fr_scenarios
 ) %>%
   mutate(
