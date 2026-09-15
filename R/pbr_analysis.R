@@ -148,18 +148,27 @@ run_pbr_analysis <- function(fig_dir) {
       theme(plot.subtitle = element_text(size = 9))
   })
 
+  # One colour per benchmark contour (named by its own value) instead of a
+  # single colour for both lines -- two same-coloured, unlabelled isolines
+  # are not distinguishable from each other.
+  benchmark_labels <- as.character(lambda_max_benchmarks)
+  # Avoid white: invisible as a legend key swatch against the (white)
+  # legend background, even though it reads fine on the dark raster itself.
+  benchmark_colours <- setNames(c("cyan", "chartreuse")[seq_along(lambda_max_benchmarks)], benchmark_labels)
+
   fig_lambda_max <- file.path(fig_dir, "lambda_max.png")
   ggsave(fig_lambda_max, width = 8, height = 4.5, dpi = 150, plot = {
-    ggplot(sens_grid, aes(x = s, y = alpha, fill = lambda_max)) +
-      geom_raster(interpolate = TRUE) +
-      geom_contour(aes(z = lambda_max), breaks = lambda_max_benchmarks, colour = "white", linewidth = 0.4) +
+    ggplot(sens_grid, aes(x = s, y = alpha)) +
+      geom_raster(aes(fill = lambda_max), interpolate = TRUE) +
+      geom_contour(aes(z = lambda_max, colour = after_stat(factor(level))),
+                   breaks = lambda_max_benchmarks, linewidth = 0.5) +
       scale_fill_viridis_c(name = "lambda_max", option = "C") +
+      scale_colour_manual(name = "Benchmark", values = benchmark_colours) +
       labs(
         x = "Adult survival (s)", y = "Age at first breeding (alpha)",
         title = "lambda_max derived from the demographic-invariant approximation",
         subtitle = paste0(
-          "White contours: ", paste(lambda_max_benchmarks, collapse = ", "),
-          " (paper's benchmarks); lambda_max > 1 (growing) throughout"
+          "Contours: paper's fixed benchmarks; lambda_max > 1 (growing) throughout"
         )
       ) +
       theme_minimal() +
@@ -178,19 +187,27 @@ run_pbr_analysis <- function(fig_dir) {
       Fr_label = factor(paste0("Fr = ", Fr), levels = paste0("Fr = ", fr_scenarios))
     )
 
+  # One colour per threshold contour (named by facility) -- same-coloured,
+  # unlabelled isolines for different thresholds are not distinguishable.
+  threshold_labels_chr <- as.character(pbr_thresholds$threshold)
+  threshold_colours <- setNames(c("cyan", "chartreuse")[seq_len(nrow(pbr_thresholds))], threshold_labels_chr)
+  threshold_display_labels <- setNames(
+    sprintf("%s (%s)", pbr_thresholds$facility, pbr_thresholds$threshold), threshold_labels_chr
+  )
+
   fig_response_surfaces <- file.path(fig_dir, "response_surfaces.png")
   ggsave(fig_response_surfaces, width = 10, height = 3.6, dpi = 150, plot = {
-    ggplot(surface_grid, aes(x = s, y = alpha, fill = PBR)) +
-      geom_raster(interpolate = TRUE) +
-      geom_contour(aes(z = PBR), breaks = pbr_thresholds$threshold, colour = "white", linewidth = 0.35) +
+    ggplot(surface_grid, aes(x = s, y = alpha)) +
+      geom_raster(aes(fill = PBR), interpolate = TRUE) +
+      geom_contour(aes(z = PBR, colour = after_stat(factor(level))),
+                   breaks = pbr_thresholds$threshold, linewidth = 0.4) +
       facet_wrap(~Fr_label, nrow = 1) +
       scale_fill_viridis_c(name = "PBR\n(bats/yr)", option = "C") +
+      scale_colour_manual(name = "Imposed threshold", values = threshold_colours, labels = threshold_display_labels) +
       labs(
         x = "Adult survival (s)", y = "Age at first breeding (alpha, yrs)",
         title = "PBR response surfaces across s, alpha and Fr",
-        subtitle = paste0("Nmin = ", format(nmin_assumed, big.mark = ","),
-                           "; white contours: ",
-                           paste(sprintf("PBR = %s (%s)", pbr_thresholds$threshold, pbr_thresholds$facility), collapse = ", "))
+        subtitle = paste0("Nmin = ", format(nmin_assumed, big.mark = ","), " bats/year")
       ) +
       theme_minimal() +
       theme(strip.text = element_text(face = "bold"))
