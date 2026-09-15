@@ -197,6 +197,46 @@ print(threshold_percentiles)
 # materially higher threshold, approaching (though not uniformly reaching)
 # double the current fixed values.
 
+# ---- 5b. Updated alpha range from the literature review -------------------
+# See references/alpha_first_breeding_evidence.md for the underlying
+# evidence table (AnAge, Haensel 2010, Ratpenats, Racey & Entwistle /
+# Frick et al.'s own discussion, Cryan et al. 2012, Komar et al. 2020).
+# For PBR, alpha should represent *effective* age at first reproduction,
+# not just physiological sexual maturity; the reviewed sources support
+# shifting the plausible range about half a year younger, from 2-4 to
+# 1.5-3.5 years (alpha = 2 remains defensible/conservative; alpha = 1.5
+# is a plausible, if more thinly supported, lower bound; the least
+# -supported part of the old 2-4 range, alpha > 3.5, is trimmed).
+
+sim_updated_alpha <- tibble::tibble(
+  s     = runif(n_sim, 0.70, 0.95),
+  alpha = runif(n_sim, 1.5, 3.5)
+) %>%
+  mutate(
+    lambda_max = lambda_max_niel(s, alpha),
+    PBR = pbr_from_components(Nmin = Nmin_assumed, Fr = Fr, lambda_max = lambda_max)
+  )
+
+alpha_range_comparison <- bind_rows(
+  tibble::tibble(alpha_range = "2 - 4 (prior)", PBR = sim$PBR),
+  tibble::tibble(alpha_range = "1.5 - 3.5 (updated)", PBR = sim_updated_alpha$PBR)
+) %>%
+  group_by(alpha_range) %>%
+  summarise(
+    q05 = quantile(PBR, 0.05), q50 = quantile(PBR, 0.50), q95 = quantile(PBR, 0.95),
+    pct_below_144 = mean(PBR < 144) * 100,
+    pct_below_120 = mean(PBR < 120) * 100,
+    .groups = "drop"
+  )
+
+print(alpha_range_comparison)
+# Moving to the updated, better-supported range (1.5-3.5) shifts the whole
+# PBR distribution further up, not down: median ~211 bats/year (vs ~186
+# under 2-4), and 144/120 now sit at only the ~8th/~2nd percentile. The
+# literature review therefore reinforces, rather than weakens, the
+# conclusion that the imposed thresholds are conservative relative to a
+# defensible flexible parametrisation.
+
 # ---- 6. PBR response surfaces over (s, alpha) -----------------------------
 # Reproduces the lambda_max(s, alpha) and PBR(s, alpha) surfaces sketched
 # in the earlier Word report (Figures 3-4), now consistently using
