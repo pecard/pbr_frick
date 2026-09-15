@@ -32,47 +32,7 @@ suppressPackageStartupMessages({
   library(ggplot2)
 })
 
-# Mirrors fr_from_iucn() / lambda_max_niel() in pbr_frick_main.R; redefined
-# here (not sourced) so this script doesn't also re-run that file's
-# exploratory plotting code as a side effect.
-fr_from_iucn <- function(iucn_status) {
-  status <- tolower(iucn_status)
-  dplyr::case_when(
-    status == "least concern (stable or increasing)" ~ 1.0,
-    status %in% c("least concern", "lc", "least concern (declining or unknown)") ~ 0.5,
-    status %in% c("near threatened", "nt") ~ 0.3,
-    status %in% c("vulnerable", "vu") ~ 0.1,
-    status %in% c("endangered", "en") ~ 0.0,
-    status %in% c("critically endangered", "cr") ~ 0.0,
-    status %in% c("data deficient", "dd") ~ 0.2,
-    TRUE ~ NA_real_
-  )
-}
-
-lambda_max_niel <- function(s, alpha) {
-  disc <- (s - s * alpha - alpha - 1)^2 - 4 * s * alpha^2
-  ((s * alpha - s + alpha + 1) + sqrt(pmax(disc, 0))) / (2 * alpha)
-}
-
-pbr_from_components <- function(Nmin, Fr, lambda_max) {
-  Rmax <- lambda_max - 1
-  0.5 * Rmax * Fr * Nmin
-}
-
-nmin_from_bounds <- function(NL, NU, ci_level = 0.60) {
-  z_lower <- qnorm((1 - ci_level) / 2)
-  z_upper <- qnorm(1 - (1 - ci_level) / 2)
-  Nhat <- sqrt(NL * NU)
-  CV <- sqrt(exp((log(NU / NL) / (2 * z_upper))^2) - 1)
-  Nhat * exp(z_lower * CV)
-}
-
-nmin_from_area_density <- function(area_km2, density_low, density_high,
-                                    scaling_factor = 2, ci_level = 0.60) {
-  NL <- area_km2 * scaling_factor * density_low
-  NU <- area_km2 * scaling_factor * density_high
-  nmin_from_bounds(NL, NU, ci_level)
-}
+source("R/pbr_functions.R")
 
 # ---- 1. Known/imposed thresholds ---------------------------------------
 thresholds <- tibble::tibble(
@@ -83,11 +43,7 @@ thresholds <- tibble::tibble(
 # ---- 2. Backward solve under the apparent original assumption -----------
 #         (Fr = 0.3, "Near Threatened") -- reconstructs how 144/120 were
 #         most likely obtained, even though this Fr is later corrected.
-required_nmin <- function(pbr_target, Fr, lambda_max) {
-  Rmax <- lambda_max - 1
-  pbr_target / (0.5 * Rmax * Fr)
-}
-
+#         required_nmin() is defined in R/pbr_functions.R.
 Fr_original_guess <- fr_from_iucn("Near Threatened")  # 0.3
 
 backsolve_grid <- tidyr::expand_grid(
@@ -112,15 +68,7 @@ Nmin_assumed <- 4000
 # is checked the other way around: what interaction area would Nmin = 4000
 # imply, under the paper's own default density proxy (5.5-18.2 bats/km^2,
 # based on Pipistrellus pipistrellus, used in absence of species-specific
-# density data)?
-implied_area <- function(nmin_target, density_low = 5.5, density_high = 18.2,
-                          scaling_factor = 2, ci_level = 0.60) {
-  f <- function(area) {
-    nmin_from_area_density(area, density_low, density_high, scaling_factor, ci_level) - nmin_target
-  }
-  uniroot(f, c(1, 1e7))$root
-}
-
+# density data)? implied_area() is defined in R/pbr_functions.R.
 area_for_4000  <- implied_area(4000)
 area_for_40000 <- implied_area(40000)
 
@@ -196,6 +144,46 @@ print(threshold_percentiles)
 # supports the expectation that a flexible parametrisation would justify a
 # materially higher threshold, approaching (though not uniformly reaching)
 # double the current fixed values.
+
+# ---- 5b. Updated alpha range from the literature review -------------------
+# See references/alpha_first_breeding_evidence.md for the underlying
+# evidence table (AnAge, Haensel 2010, Ratpenats, Racey & Entwistle /
+# Frick et al.'s own discussion, Cryan et al. 2012, Komar et al. 2020).
+# For PBR, alpha should represent *effective* age at first reproduction,
+# not just physiological sexual maturity; the reviewed sources support
+# shifting the plausible range about half a year younger, from 2-4 to
+# 1.5-3.5 years (alpha = 2 remains defensible/conservative; alpha = 1.5
+# is a plausible, if more thinly supported, lower bound; the least
+# -supported part of the old 2-4 range, alpha > 3.5, is trimmed).
+
+sim_updated_alpha <- tibble::tibble(
+  s     = runif(n_sim, 0.70, 0.95),
+  alpha = runif(n_sim, 1.5, 3.5)
+) %>%
+  mutate(
+    lambda_max = lambda_max_niel(s, alpha),
+    PBR = pbr_from_components(Nmin = Nmin_assumed, Fr = Fr, lambda_max = lambda_max)
+  )
+
+alpha_range_comparison <- bind_rows(
+  tibble::tibble(alpha_range = "2 - 4 (prior)", PBR = sim$PBR),
+  tibble::tibble(alpha_range = "1.5 - 3.5 (updated)", PBR = sim_updated_alpha$PBR)
+) %>%
+  group_by(alpha_range) %>%
+  summarise(
+    q05 = quantile(PBR, 0.05), q50 = quantile(PBR, 0.50), q95 = quantile(PBR, 0.95),
+    pct_below_144 = mean(PBR < 144) * 100,
+    pct_below_120 = mean(PBR < 120) * 100,
+    .groups = "drop"
+  )
+
+print(alpha_range_comparison)
+# Moving to the updated, better-supported range (1.5-3.5) shifts the whole
+# PBR distribution further up, not down: median ~211 bats/year (vs ~186
+# under 2-4), and 144/120 now sit at only the ~8th/~2nd percentile. The
+# literature review therefore reinforces, rather than weakens, the
+# conclusion that the imposed thresholds are conservative relative to a
+# defensible flexible parametrisation.
 
 # ---- 6. PBR response surfaces over (s, alpha) -----------------------------
 # Reproduces the lambda_max(s, alpha) and PBR(s, alpha) surfaces sketched
