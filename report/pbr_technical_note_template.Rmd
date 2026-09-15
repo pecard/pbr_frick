@@ -37,6 +37,13 @@ params:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+# knitr::include_graphics() defaults to rewriting absolute paths as
+# relative to rmarkdown::render()'s output_dir (here "outputs/", not this
+# .Rmd's own "report/" folder) -- pandoc then can't resolve the result and
+# silently swaps in the image's alt-text description instead of embedding
+# it. The figure paths passed in via params are already absolute; keep
+# them as-is.
+options(knitr.graphics.rel_path = FALSE)
 ```
 
 Document history / List of changes.
