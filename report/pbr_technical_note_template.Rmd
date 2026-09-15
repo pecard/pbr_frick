@@ -25,6 +25,7 @@ params:
   alpha_range: !r NULL
   alpha_range_prior: !r NULL
   elasticity_ranges: !r NULL
+  fig_lambda_max: ""
   fig_elasticity_survival: ""
   fig_elasticity_alpha: ""
   fig_response_surfaces: ""
@@ -131,6 +132,25 @@ $\lambda_{max}$ was recalculated and local sensitivity estimated
 numerically using finite differences. Elasticity is a dimensionless
 proportional sensitivity metric: the expected percentage variation in
 $\lambda_{max}$ resulting from a 1% variation in a demographic parameter.
+
+```{r fig-lambda-max}
+knitr::include_graphics(params$fig_lambda_max)
+```
+
+Within the explored range, $\lambda_{max}$ *decreases* as adult survival or
+age at first breeding increase -- a counterintuitive relationship
+documented by Niel & Lebreton (2005) and noted by Frick et al. themselves,
+arising from the life-history trade-off between survival and fecundity
+built into the demographic-invariant approximation. This is a decrease in
+absolute terms, not a sign change: for any survival probability in (0, 1),
+this formula's $\lambda_{max}$ only approaches 1 (a stable population) in
+the limit as age at first breeding tends to infinity, and never actually
+reaches it for a realistic age at first breeding -- the population is
+growing ($\lambda_{max} > 1$) throughout the entire range explored here and
+well beyond it. The elasticity values below should be read with that in
+mind: a negative elasticity means $\lambda_{max}$ falls (while remaining
+well above 1) as the parameter increases, not that $\lambda_{max}$ itself
+becomes small or negative.
 
 ```{r elasticity-table}
 knitr::kable(params$elasticity_ranges, digits = 3,

@@ -110,14 +110,30 @@ run_pbr_analysis <- function(fig_dir) {
     tidyr::pivot_wider(names_from = Statistic, values_from = Value) %>%
     select(Parameter, min, max, median)
 
+  # lambda_max is > 1 (population growing) everywhere in sens_grid -- an
+  # inherent property of the Niel & Lebreton formula for s in (0,1), not a
+  # feature of the chosen ranges: for any s, lambda_max only APPROACHES 1
+  # asymptotically as alpha -> infinity, and never actually reaches it for
+  # any finite, realistic alpha (e.g. still ~1.0001 at alpha = 10,000
+  # years). A "lambda_max = 1" reference line therefore cannot be drawn
+  # within any realistic plot range; instead, both elasticity plots below
+  # state the actual lambda_max range spanned, so a reader does not read
+  # "elasticity is negative" as "the population is declining" -- it means
+  # lambda_max *decreases* (while staying well above 1) as survival/age
+  # increase. See fig_lambda_max for the lambda_max values themselves.
+  lambda_range_txt <- sprintf("lambda_max = %.2f-%.2f here (always > 1, growing)",
+                               min(sens_grid$lambda_max), max(sens_grid$lambda_max))
+
   fig_elasticity_survival <- file.path(fig_dir, "elasticity_survival.png")
   ggsave(fig_elasticity_survival, width = 7, height = 4.5, dpi = 150, plot = {
     ggplot(sens_grid, aes(x = s, y = alpha, fill = E_s)) +
       geom_raster(interpolate = TRUE) +
       scale_fill_viridis_c(name = "E[s]", option = "B", direction = -1) +
       labs(x = "Adult survival (s)", y = "Age at first breeding (alpha)",
-           title = "Elasticity of lambda_max to adult survival") +
-      theme_minimal()
+           title = "Elasticity of lambda_max to adult survival",
+           subtitle = lambda_range_txt) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9))
   })
 
   fig_elasticity_alpha <- file.path(fig_dir, "elasticity_alpha.png")
@@ -126,8 +142,28 @@ run_pbr_analysis <- function(fig_dir) {
       geom_raster(interpolate = TRUE) +
       scale_fill_viridis_c(name = "E[alpha]", option = "A", direction = -1) +
       labs(x = "Adult survival (s)", y = "Age at first breeding (alpha)",
-           title = "Elasticity of lambda_max to age at first breeding") +
-      theme_minimal()
+           title = "Elasticity of lambda_max to age at first breeding",
+           subtitle = lambda_range_txt) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9))
+  })
+
+  fig_lambda_max <- file.path(fig_dir, "lambda_max.png")
+  ggsave(fig_lambda_max, width = 8, height = 4.5, dpi = 150, plot = {
+    ggplot(sens_grid, aes(x = s, y = alpha, fill = lambda_max)) +
+      geom_raster(interpolate = TRUE) +
+      geom_contour(aes(z = lambda_max), breaks = lambda_max_benchmarks, colour = "white", linewidth = 0.4) +
+      scale_fill_viridis_c(name = "lambda_max", option = "C") +
+      labs(
+        x = "Adult survival (s)", y = "Age at first breeding (alpha)",
+        title = "lambda_max derived from the demographic-invariant approximation",
+        subtitle = paste0(
+          "White contours: ", paste(lambda_max_benchmarks, collapse = ", "),
+          " (paper's benchmarks); lambda_max > 1 (growing) throughout"
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9))
   })
 
   ## ---- 3. Response surfaces across s, alpha and Fr -----------------------
@@ -320,6 +356,7 @@ run_pbr_analysis <- function(fig_dir) {
     elasticity_ranges = elasticity_ranges,
     fig_elasticity_survival = fig_elasticity_survival,
     fig_elasticity_alpha = fig_elasticity_alpha,
+    fig_lambda_max = fig_lambda_max,
     fig_response_surfaces = fig_response_surfaces,
     fig_response_surfaces_3d = fig_response_surfaces_3d,
     fig_pbr_density = fig_pbr_density,
