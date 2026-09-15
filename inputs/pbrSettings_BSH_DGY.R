@@ -37,6 +37,15 @@ iucn_status_corrected <- "Least Concern"
 ## which treat lambda_max as derived from the ranges below.
 lambda_max_benchmarks <- c(1.24, 1.20)
 
+## Real, known project geography (Paulo, 2026-09) -- used for the Nmin
+## plausibility check in place of a back-solved area: BSH and DGY are
+## ~100 km apart; each project's own footprint is ~370 km2; the combined
+## region spanning both (a landscape-scale reading of "local population")
+## is ~7000 km2.
+project_footprint_km2    <- 370
+combined_region_km2      <- 7000
+interproject_distance_km <- 100
+
 ## Demographic parameter ranges for the Monte Carlo simulation, response
 ## surfaces and elasticity analysis.
 s_range     <- c(0.70, 0.95)  # adult survival
@@ -46,15 +55,14 @@ alpha_range <- c(1.5, 3.5)    # age at first breeding (years) -- literature
 alpha_range_prior <- c(2, 4)  # earlier, wider range -- kept only for the
                                # before/after comparison table
 
-## Default density proxy (bats/km2) for the Nmin area-plausibility check --
+## Default density proxy (bats/km2) for the Nmin plausibility check --
 ## Pipistrellus pipistrellus, per Frick et al. (2026), used in the absence
-## of species-specific density data.
+## of species-specific density data. The check compares this against the
+## density that Nmin_assumed would imply over the real project areas
+## above (project_footprint_km2, combined_region_km2), not the other way
+## around -- see R/pbr_analysis.R.
 density_proxy_low  <- 5.5
 density_proxy_high <- 18.2
-
-## Multiplier used for the "how much larger would Nmin have to be before
-## it becomes implausible" plausibility check (e.g. 10 tests Nmin x10).
-implausible_nmin_multiplier <- 10
 
 ## Fr scenarios shown in the response-surface comparison figure (one panel
 ## per value): Vulnerable, Near Threatened, Least Concern

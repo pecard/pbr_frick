@@ -52,8 +52,25 @@ run_pbr_analysis <- function(fig_dir) {
   }
   nmin_assumed <- find_shared_value(backsolve_grid$Nmin_required)
 
-  area_for_nmin      <- implied_area(nmin_assumed, density_proxy_low, density_proxy_high)
-  area_for_nmin_10x   <- implied_area(nmin_assumed * implausible_nmin_multiplier, density_proxy_low, density_proxy_high)
+  # Plausibility check against the REAL, known project geography (not a
+  # back-solved area): what density would Nmin_assumed imply if it applies
+  # to a single project's own footprint, versus if it applies to the whole
+  # landscape spanning both projects, holding the density_high:density_low
+  # ratio fixed at the paper's own default proxy?
+  density_ratio <- density_proxy_high / density_proxy_low
+
+  density_at_footprint <- implied_density(nmin_assumed, project_footprint_km2, density_ratio)
+  density_at_region    <- implied_density(nmin_assumed, combined_region_km2, density_ratio)
+
+  nmin_plausibility <- tibble::tibble(
+    area_label = c(
+      sprintf("Single project footprint (%s km2)", project_footprint_km2),
+      sprintf("Combined region, both projects (%s km2)", combined_region_km2)
+    ),
+    area_km2 = c(project_footprint_km2, combined_region_km2),
+    density_low = c(density_at_footprint["low"], density_at_region["low"]),
+    density_high = c(density_at_footprint["high"], density_at_region["high"])
+  )
 
   pbr_corrected_fr <- tibble::tibble(lambda_max_fixed = lambda_max_benchmarks) %>%
     mutate(PBR = pbr_from_components(nmin_assumed, fr_corrected, lambda_max_fixed))
@@ -220,9 +237,10 @@ run_pbr_analysis <- function(fig_dir) {
     iucn_status_corrected = iucn_status_corrected,
     backsolve_grid = backsolve_grid,
     nmin_assumed = nmin_assumed,
-    area_for_nmin = area_for_nmin,
-    area_for_nmin_10x = area_for_nmin_10x,
-    implausible_nmin_multiplier = implausible_nmin_multiplier,
+    project_footprint_km2 = project_footprint_km2,
+    combined_region_km2 = combined_region_km2,
+    interproject_distance_km = interproject_distance_km,
+    nmin_plausibility = nmin_plausibility,
     density_proxy_low = density_proxy_low,
     density_proxy_high = density_proxy_high,
     pbr_corrected_fr = pbr_corrected_fr,

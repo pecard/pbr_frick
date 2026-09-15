@@ -14,9 +14,10 @@ params:
   iucn_status_corrected: ""
   backsolve_grid: !r NULL
   nmin_assumed: !r NULL
-  area_for_nmin: !r NULL
-  area_for_nmin_10x: !r NULL
-  implausible_nmin_multiplier: !r NULL
+  project_footprint_km2: !r NULL
+  combined_region_km2: !r NULL
+  interproject_distance_km: !r NULL
+  nmin_plausibility: !r NULL
   density_proxy_low: !r NULL
   density_proxy_high: !r NULL
   pbr_corrected_fr: !r NULL
@@ -213,23 +214,58 @@ knitr::kable(params$backsolve_grid, digits = c(0, 0, 2, 0),
 ```
 
 This is the most parsimonious explanation available for how the imposed
-thresholds were obtained: a single assumed local population of
-~`r format(params$nmin_assumed, big.mark = ",")` individuals, combined with
-the paper's $\lambda_{max}$ benchmarks applied per facility.
+thresholds were obtained: local populations of
+~`r format(params$nmin_assumed, big.mark = ",")` individuals near each
+facility, combined with the paper's $\lambda_{max}$ benchmarks applied per
+facility. `r params$project_ref` are approximately
+`r params$interproject_distance_km` km apart, so this is better read as two
+similarly sized local populations rather than a single population shared
+between them (see below).
 
-Whether `r format(params$nmin_assumed, big.mark = ",")` individuals is a
-plausible local population for the region can be assessed via the
-interaction area it implies under a default density proxy
+Whether ~`r format(params$nmin_assumed, big.mark = ",")` individuals is a
+plausible local population can be assessed against the real, known project
+geography, by asking what average bat density it would imply, rather than
+backing out a hypothetical area from a hypothetical density.
+
+```{r nmin-plausibility-table}
+knitr::kable(
+  params$nmin_plausibility, digits = c(0, 0, 2, 2),
+  col.names = c("Area scenario", "Area (km2)", "Implied density low (bats/km2)", "Implied density high (bats/km2)"),
+  caption = paste0("Density that Nmin = ", format(params$nmin_assumed, big.mark = ","),
+                    " would imply, under the two real area readings, holding the density ratio fixed at the default proxy's (",
+                    params$density_proxy_low, "-", params$density_proxy_high, " bats/km2).")
+)
+```
+
+The single-project-footprint reading
+(`r params$nmin_plausibility$area_km2[1]` km$^2$) implies a density of
+`r round(params$nmin_plausibility$density_low[1], 1)`-`r round(params$nmin_plausibility$density_high[1], 1)`
+bats/km$^2$ -- closely matching the paper's own default density proxy
 (`r params$density_proxy_low`-`r params$density_proxy_high` bats/km$^2$,
 based on *Pipistrellus pipistrellus*, used in the absence of
-species-specific density data): $N_{min} = `r format(params$nmin_assumed, big.mark = ",")`$
-implies an interaction area of approximately `r round(params$area_for_nmin)` km$^2$,
-plausible as a regional buffer, whereas $N_{min} \times `r params$implausible_nmin_multiplier`$
-would imply approximately `r round(params$area_for_nmin_10x)` km$^2$ -- well
-beyond a project-scale local population as the framework defines it. This
-does not confirm `r format(params$nmin_assumed, big.mark = ",")` individuals
-as correct, but it is the more defensible order of magnitude of the two,
-and is used as the working assumption throughout the rest of this note.
+species-specific density data) for a common bat species. Treating
+$N_{min} \approx `r format(params$nmin_assumed, big.mark = ",")`$ as the
+local population near each facility individually, rather than shared
+across both, is therefore consistent with typical bat density and with
+Frick et al.'s own project-scale definition of local population.
+
+By contrast, treating
+$N_{min} = `r format(params$nmin_assumed, big.mark = ",")`$ as a single
+population spread across the combined region spanning both projects
+(`r params$nmin_plausibility$area_km2[2]` km$^2$) implies a density of only
+`r round(params$nmin_plausibility$density_low[2], 2)`-`r round(params$nmin_plausibility$density_high[2], 2)`
+bats/km$^2$ -- roughly an order of magnitude below the default proxy, an
+assumption that would need independent supporting evidence (e.g. that
+regional density for `r params$species_common_name` here is genuinely that
+sparse) before being considered reasonable.
+
+The project-footprint reading is therefore both the more defensible order
+of magnitude and the one that matches Frick et al.'s own project-scale
+local-population concept. The working assumption throughout the rest of
+this note is accordingly that $N_{min} \approx `r format(params$nmin_assumed, big.mark = ",")`$
+applies to each facility's own local population, not to a single population
+shared across the `r params$interproject_distance_km` km separating
+`r paste(params$thresholds$facility, collapse = " and ")`.
 
 $F_r = `r params$fr_original`$ corresponds to a `r params$iucn_status_original_guess`
 status. The `r params$species_common_name` is not a threatened category, so

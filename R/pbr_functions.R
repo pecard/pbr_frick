@@ -70,3 +70,19 @@ implied_area <- function(nmin_target, density_low = 5.5, density_high = 18.2,
   }
   uniroot(f, c(1, 1e7))$root
 }
+
+# Density (bats/km^2) that would produce a given Nmin over a KNOWN area,
+# holding the density_high:density_low ratio fixed at density_ratio (that
+# ratio alone sets CV_Nhat in the lognormal formulation, so Nmin is exactly
+# linear in density_low for a fixed area/ratio -- solved in closed form,
+# not by root-finding). Use this when the interaction area is known (e.g.
+# a project's real footprint) and the question is what density it implies,
+# the mirror image of implied_area().
+implied_density <- function(nmin_target, area_km2, density_ratio,
+                             scaling_factor = 2, ci_level = 0.60) {
+  z_lower <- qnorm((1 - ci_level) / 2)
+  z_upper <- qnorm(1 - (1 - ci_level) / 2)
+  CV <- sqrt(exp((log(density_ratio) / (2 * z_upper))^2) - 1)
+  density_low <- nmin_target / (area_km2 * scaling_factor * sqrt(density_ratio) * exp(z_lower * CV))
+  c(low = density_low, high = density_low * density_ratio)
+}
