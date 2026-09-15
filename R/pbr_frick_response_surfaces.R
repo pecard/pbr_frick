@@ -23,15 +23,7 @@ suppressPackageStartupMessages({
   library(plotly)
 })
 
-lambda_max_niel <- function(s, alpha) {
-  disc <- (s - s * alpha - alpha - 1)^2 - 4 * s * alpha^2
-  ((s * alpha - s + alpha + 1) + sqrt(pmax(disc, 0))) / (2 * alpha)
-}
-
-pbr_from_components <- function(Nmin, Fr, lambda_max) {
-  Rmax <- lambda_max - 1
-  0.5 * Rmax * Fr * Nmin
-}
+source("R/pbr_functions.R")
 
 Nmin_assumed <- 4000
 Fr_scenarios <- c(0.1, 0.3, 0.5, 1.0)  # Vulnerable, Near Threatened,
