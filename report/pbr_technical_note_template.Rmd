@@ -50,10 +50,11 @@ options(knitr.graphics.rel_path = FALSE)
 
 Document history / List of changes.
 
-| Version | Changes | Date of changes | Authors | Review | Review Date | Approval |
-|---|---|---|---|---|---|---|
-| Version 1 | First draft | 2026-05-07 | Paulo Cardoso | | | |
-| Version 2 | Corrected recovery factor (Fr); reverse-engineered and plausibility-checked the local population estimate (Nmin); updated age-at-first-breeding range from a literature review; rebuilt the sensitivity, response-surface and Monte Carlo analyses on consistent, reproducible parameter ranges | 2026-09 | Paulo Cardoso | | | |
+| Version | Changes | Date of changes | Authors |
+|---|---|---|---|
+| Version 1 | First draft | 2026-05-07 | Paulo Cardoso |
+| Version 2 | Corrected recovery factor (Fr); reverse-engineered and plausibility-checked the local population estimate (Nmin); updated age-at-first-breeding range from a literature review; rebuilt the sensitivity, response-surface and Monte Carlo analyses on consistent, reproducible parameter ranges | 2026-09 | Paulo Cardoso |
+| Version 3 | Added a Leslie-matrix cross-check (validated against the published Dekker & Limpens 2024 model) and a 25-year stochastic PVA-lite projection, with a summary comparison against the PBR/Niel-Lebreton approach | 2026-09 | Paulo Cardoso |
 
 # Context
 
