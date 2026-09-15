@@ -28,6 +28,7 @@ params:
   fig_elasticity_survival: ""
   fig_elasticity_alpha: ""
   fig_response_surfaces: ""
+  fig_response_surfaces_3d: !r NULL
   fig_pbr_density: ""
   n_sim: !r NULL
   pbr_quantiles: !r NULL
@@ -295,6 +296,12 @@ considered.
 
 ```{r fig-response-surfaces}
 knitr::include_graphics(params$fig_response_surfaces)
+```
+
+```{r fig-response-surfaces-3d}
+if (!is.null(params$fig_response_surfaces_3d)) {
+  knitr::include_graphics(params$fig_response_surfaces_3d)
+}
 ```
 
 Across the plausible demographic range, the imposed-threshold contours

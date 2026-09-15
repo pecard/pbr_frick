@@ -160,6 +160,72 @@ run_pbr_analysis <- function(fig_dir) {
       theme(strip.text = element_text(face = "bold"))
   })
 
+  ## ---- 3b. Response surfaces, 3D (static print, matching the original ----
+  ##          report's plot.ly figure) -- optional: needs the 'plotly' and
+  ##          'kaleido' packages (install.packages(c("plotly", "kaleido")))
+  ##          to export a static image; skipped with a message otherwise,
+  ##          the 2D faceted version above always covers the same content.
+  fig_response_surfaces_3d <- NULL
+  has_3d_deps <- requireNamespace("plotly", quietly = TRUE) &&
+    requireNamespace("RColorBrewer", quietly = TRUE) &&
+    requireNamespace("kaleido", quietly = TRUE)
+
+  if (has_3d_deps) {
+    hues <- c("Blues", "Greens", "Oranges", "Purples")  # one per Fr scenario, low->high
+    fig3d <- plotly::plot_ly()
+    for (i in seq_along(fr_scenarios)) {
+      fr_val <- fr_scenarios[i]
+      sub <- surface_grid %>% filter(Fr == fr_val)
+      s_vals <- sort(unique(sub$s))
+      a_vals <- sort(unique(sub$alpha))
+      z_mat <- matrix(sub$PBR, nrow = length(s_vals), byrow = FALSE)
+
+      fig3d <- fig3d %>%
+        plotly::add_surface(
+          x = a_vals, y = s_vals, z = z_mat,
+          colorscale = list(c(0, 1), c("white", RColorBrewer::brewer.pal(9, hues[i])[7])),
+          showscale = FALSE, opacity = 0.85,
+          name = paste0("Fr = ", fr_val)
+        ) %>%
+        plotly::add_trace(
+          type = "scatter3d", mode = "markers",
+          x = a_vals[1], y = s_vals[1], z = max(sub$PBR),
+          marker = list(size = 8, color = RColorBrewer::brewer.pal(9, hues[i])[7]),
+          name = paste0("Fr = ", fr_val), showlegend = TRUE
+        )
+    }
+    fig3d <- fig3d %>%
+      plotly::layout(
+        title = list(text = paste0("PBR response surfaces across s, alpha and Fr (Nmin = ",
+                                    format(nmin_assumed, big.mark = ","), ")")),
+        scene = list(
+          xaxis = list(title = "Age at first breeding (alpha)"),
+          yaxis = list(title = "Adult survival (s)"),
+          zaxis = list(title = "PBR (bats/year)")
+        ),
+        legend = list(title = list(text = "Recovery factor scenario"))
+      )
+
+    fig_response_surfaces_3d_path <- file.path(fig_dir, "response_surfaces_3d.png")
+    export_ok <- tryCatch({
+      plotly::save_image(fig3d, file = fig_response_surfaces_3d_path, width = 900, height = 700)
+      TRUE
+    }, error = function(e) {
+      message(
+        "Could not export the 3D response-surface figure as a static image (",
+        conditionMessage(e), "). The report still includes the 2D faceted version."
+      )
+      FALSE
+    })
+    if (export_ok) fig_response_surfaces_3d <- fig_response_surfaces_3d_path
+  } else {
+    message(
+      "Packages 'plotly'/'RColorBrewer'/'kaleido' not all installed -- skipping the static ",
+      "3D response-surface print (install.packages(c(\"plotly\", \"RColorBrewer\", \"kaleido\")) to include it). ",
+      "The report still includes the 2D faceted version."
+    )
+  }
+
   ## ---- 4. Monte Carlo simulation ------------------------------------------
   set.seed(mc_seed)
   sim <- tibble::tibble(
@@ -255,6 +321,7 @@ run_pbr_analysis <- function(fig_dir) {
     fig_elasticity_survival = fig_elasticity_survival,
     fig_elasticity_alpha = fig_elasticity_alpha,
     fig_response_surfaces = fig_response_surfaces,
+    fig_response_surfaces_3d = fig_response_surfaces_3d,
     fig_pbr_density = fig_pbr_density,
     n_sim = mc_n_sim,
     pbr_quantiles = pbr_quantiles,
