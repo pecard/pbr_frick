@@ -35,6 +35,23 @@ params:
   pbr_quantiles: !r NULL
   threshold_percentiles: !r NULL
   alpha_range_comparison: !r NULL
+  leslie_s_juv: !r NULL
+  leslie_s_adult_f: !r NULL
+  leslie_s_adult_m: !r NULL
+  leslie_p_breed: !r NULL
+  leslie_litter: !r NULL
+  leslie_F: !r NULL
+  lambda_leslie_validated: !r NULL
+  leslie_vs_pbr: !r NULL
+  fig_leslie_maturation: ""
+  n0_total: !r NULL
+  pva_n_years: !r NULL
+  pva_n_reps: !r NULL
+  pva_vital_rate_cv: !r NULL
+  quasi_ext_threshold: !r NULL
+  pva_risk_summary: !r NULL
+  fig_pva_projection: ""
+  comparison_summary: !r NULL
 ---
 
 ```{r setup, include=FALSE}
@@ -385,6 +402,143 @@ reinforces, rather than weakens, the conclusion below.
 ```{r fig-pbr-density}
 knitr::include_graphics(params$fig_pbr_density)
 ```
+
+## Leslie matrix cross-check
+
+The PBR/Niel-Lebreton approach is one specific method among several used to
+estimate a population's sustainable growth rate: simpler methods (e.g. a
+Leslie/Lefkovitch matrix) and more complex ones (full population viability
+analysis, PVA) are also standard practice, and checking whether they agree
+is itself informative. Unlike Niel & Lebreton's demographic-invariant
+approximation, which is deliberately built to need only adult survival and
+age at first breeding, a Leslie matrix requires an explicit juvenile
+survival rate and fecundity -- inputs the PBR calculation above does not
+use at all.
+
+Species-specific values for the Parti-coloured bat were located: Safi
+(2006) reports juvenile survival = `r params$leslie_s_juv`, adult female
+survival = `r params$leslie_s_adult_f`, adult male survival =
+`r params$leslie_s_adult_m`, and `r params$leslie_p_breed * 100`% of adult
+females breeding; Zhigalin & Moskvitina (2017) report a litter size of
+`r params$leslie_litter` at suburban colonies (2.7-2.9 at urban colonies).
+Safi's survival figures are simple return rates (animals marked in year
+*t* recaptured in *t+1*), not estimates from a modern open-population
+mark-recapture model, and no confidence intervals were reported --
+treated here as central working values, not precisely known rates.
+
+This parametrisation was cross-checked against Dekker & Limpens (2024),
+"Population dynamics of Dutch bats relevant to wind energy", which
+independently built and published a *V. murinus* stage matrix from the
+same Safi (2006) and Zhigalin & Moskvitina data. The female recruitment
+term they use, $F = p_{breed} \times litter \times 0.5 \times S_{juv} =$
+`r round(params$leslie_F, 4)`, together with the juvenile-to-adult
+transition ($S_{juv}$) and adult female survival ($S_{adult}$), gives a
+female 2-stage matrix
+
+$$\mathbf{A} = \begin{bmatrix} 0 & F \\ S_{juv} & S_{adult} \end{bmatrix}$$
+
+whose dominant eigenvalue reproduces the published growth rate exactly:
+$\lambda =$ `r round(params$lambda_leslie_validated, 4)` (published: 1.047,
++4.7%/year). This validated structure represents about two years of
+juvenile survival before an individual breeds (once folded into $F$, once
+in the explicit transition), not one, as the recruitment formula might
+suggest at first glance.
+
+```{r fig-leslie-maturation}
+knitr::include_graphics(params$fig_leslie_maturation)
+```
+
+Extending this validated structure across the same adult-survival range
+used throughout this note (`r params$s_range[1]`-`r params$s_range[2]`),
+holding juvenile survival at Safi's value, $\lambda$ ranges
+`r round(params$leslie_vs_pbr$lambda_min, 2)`-`r round(params$leslie_vs_pbr$lambda_max_val, 2)`:
+it `r if (params$leslie_vs_pbr$reaches_120) "just reaches" else "does not reach"`
+the DGY benchmark (1.20) only at the top of the adult-survival range, and
+`r if (params$leslie_vs_pbr$reaches_124) "reaches" else "never reaches"`
+the BSH benchmark (1.24) anywhere in it. Delaying maturation further (more
+pre-reproductive stages) pushes $\lambda$ down further still. Independently
+of the PBR/Niel-Lebreton analysis above, this validated, published,
+species-specific demographic model does not support the imposed
+thresholds' implicit growth-rate assumption except at the most optimistic
+end of the plausible adult-survival range.
+
+## PVA-lite: 25-year stochastic projection
+
+The Leslie matrix above is deterministic: it describes the average
+trajectory but not the year-to-year variability real populations
+experience, nor the practical question of whether the currently-imposed
+thresholds are likely to be associated with population decline over a
+realistic planning horizon. A simplified stochastic population viability
+analysis ("PVA-lite") addresses both, without requiring specialised PVA
+software: the validated Leslie structure above is projected
+`r params$pva_n_years` years forward, redrawing survival and reproduction
+each year from Beta distributions (`r params$pva_vital_rate_cv * 100`%
+coefficient of variation around Safi's point values -- a working
+assumption, since no inter-annual variance estimate for *V. murinus* vital
+rates was located) and applying demographic stochasticity (binomial and
+Poisson draws on the actual, finite population each year), replicated
+`r format(params$pva_n_reps, big.mark = ",")` times per scenario. The
+starting population is $N_{min} = $ `r format(params$n0_total, big.mark = ",")`
+(both sexes, the local population assumed per facility throughout this
+note), split by sex and, within females, across stages using the Leslie
+matrix's own stable stage distribution. Three scenarios are compared: no
+additional mortality (the model's own baseline trend), and each facility's
+imposed threshold applied as extra annual removal, split evenly across
+sexes and, within females, proportionally across stages.
+
+```{r fig-pva-projection}
+knitr::include_graphics(params$fig_pva_projection)
+```
+
+```{r pva-risk-table}
+knitr::kable(
+  params$pva_risk_summary, digits = c(0, 0, 0, 0, 1, 1),
+  col.names = c("Scenario", "Median final N", "P5 final N", "P95 final N", "% decline over horizon", "% quasi-extinction"),
+  caption = paste0("Risk summary after ", params$pva_n_years, " years, ",
+                    format(params$pva_n_reps, big.mark = ","),
+                    " replicate trajectories per scenario. Quasi-extinction: falling below ",
+                    round(params$quasi_ext_threshold), " individuals (",
+                    100 * (params$quasi_ext_threshold / params$n0_total), "% of N0) at any point.")
+)
+```
+
+Under this model, the currently-imposed thresholds do not produce a
+catastrophic outcome: median population size still grows over
+`r params$pva_n_years` years under both. But they measurably raise the
+probability of decline relative to the model's own unharvested baseline --
+from `r round(params$pva_risk_summary$p_decline[params$pva_risk_summary$scenario == "No additional mortality"], 1)`%
+to
+`r round(min(params$pva_risk_summary$p_decline[params$pva_risk_summary$scenario != "No additional mortality"]), 0)`-`r round(max(params$pva_risk_summary$p_decline[params$pva_risk_summary$scenario != "No additional mortality"]), 0)`%
+-- particularly at BSH's higher threshold, and with a small but non-zero
+probability of quasi-extinction there.
+
+## Comparing the three approaches
+
+```{r comparison-table}
+knitr::kable(
+  params$comparison_summary,
+  caption = "Summary comparison: PBR/Niel-Lebreton, the validated species-specific Leslie matrix, and the PVA-lite projection."
+)
+```
+
+The three methods do not agree. The PBR/Niel-Lebreton approach, at its
+fixed benchmarks, sits at the upper end (and, once the recovery factor and
+demographic ranges are corrected as in the sections above, potentially
+above) what a flexible parametrisation of that same approximation
+supports. The validated, published, species-specific Leslie matrix
+produces a materially lower growth rate ($\lambda \approx$
+`r round(params$lambda_leslie_validated, 3)`) than either PBR benchmark,
+reaching them only at the most optimistic edge of the adult-survival
+range. The PVA-lite projection, built on that same validated structure,
+shows the imposed thresholds are not obviously unsustainable over a
+25-year horizon, but they do measurably raise the probability of decline
+relative to no additional mortality. Taken together, this three-way
+comparison does not resolve which figure is "correct" -- each method
+carries its own assumptions and uncertainties, documented in the sections
+above -- but it does show that the imposed thresholds sit closer to the
+optimistic end of what the available evidence supports than to its
+centre, across every method tried, reinforcing the case for treating them
+as a band under adaptive management rather than as a precise, fixed limit.
 
 ## Preliminary interpretation and implications
 

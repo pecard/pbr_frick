@@ -358,6 +358,192 @@ run_pbr_analysis <- function(fig_dir) {
       theme_minimal()
   })
 
+  ## ---- 5b. Leslie matrix cross-check (Safi 2006; Dekker & Limpens 2024) --
+  ## Validated against the published model: female 2-stage matrix
+  ## [[0, F], [S_juv, S_adult]] with F = p_breed*litter*sex_ratio*S_juv
+  ## reproduces the published lambda = 1.047 exactly (see
+  ## R/leslie_dekker_limpens.R, where this was first established, and
+  ## references/leslie_matrix_parametrisation.md for the full literature
+  ## trail, including the Myotis lucifugus proxy tried before the
+  ## species-specific Safi/Dekker & Limpens data were located).
+  leslie_F <- leslie_p_breed * leslie_litter * leslie_sex_ratio * leslie_s_juv
+
+  build_dekker_stage_matrix <- function(n_stages, s_juv, s_adult, fecundity) {
+    A <- matrix(0, n_stages, n_stages)
+    A[1, n_stages] <- fecundity
+    for (i in 1:(n_stages - 1)) A[i + 1, i] <- s_juv
+    A[n_stages, n_stages] <- s_adult
+    A
+  }
+  leslie_lambda <- function(A) max(Mod(eigen(A, only.values = TRUE)$values))
+
+  A_leslie_validated <- build_dekker_stage_matrix(2, leslie_s_juv, leslie_s_adult_f, leslie_F)
+  lambda_leslie_validated <- leslie_lambda(A_leslie_validated)
+
+  leslie_grid <- tidyr::expand_grid(
+    s_adult = seq(s_range[1], s_range[2], length.out = 50),
+    n_stages = leslie_stage_range
+  ) %>%
+    mutate(
+      lambda_Leslie = mapply(function(s_a, n) leslie_lambda(build_dekker_stage_matrix(n, leslie_s_juv, s_a, leslie_F)),
+                              s_adult, n_stages),
+      n_stages_label = factor(paste0(n_stages, ifelse(n_stages == 2, " (validated)", "")),
+                               levels = paste0(leslie_stage_range, ifelse(leslie_stage_range == 2, " (validated)", "")))
+    )
+
+  # Where does the validated structure's lambda sit relative to the PBR
+  # benchmarks, across the same adult-survival range used throughout?
+  leslie_vs_pbr <- leslie_grid %>%
+    filter(n_stages == 2) %>%
+    summarise(
+      lambda_min = min(lambda_Leslie), lambda_max_val = max(lambda_Leslie),
+      reaches_120 = max(lambda_Leslie) >= 1.20, reaches_124 = max(lambda_Leslie) >= 1.24
+    )
+
+  fig_leslie_maturation <- file.path(fig_dir, "leslie_maturation_delay.png")
+  ggsave(fig_leslie_maturation, width = 7.5, height = 4.5, dpi = 150, plot = {
+    ggplot(leslie_grid, aes(x = s_adult, y = lambda_Leslie, colour = n_stages_label)) +
+      geom_line(linewidth = 0.9) +
+      geom_hline(yintercept = c(1.20, 1.24), linetype = "dashed", colour = c("cyan", "chartreuse")) +
+      geom_vline(xintercept = leslie_s_adult_f, linetype = "dotted", colour = "grey40") +
+      scale_colour_viridis_d(name = "Pre-reproductive\nstages", option = "C") +
+      labs(
+        x = "Adult female survival", y = "lambda (Leslie matrix)",
+        title = "V. murinus lambda vs adult survival, by maturation delay",
+        subtitle = paste0("S_juv = ", leslie_s_juv, " (Safi 2006); dotted: Safi's own S_adult=",
+                           leslie_s_adult_f, "; dashed: PBR benchmarks 1.20 (cyan)/1.24 (green)")
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 8))
+  })
+
+  ## ---- 5c. PVA-lite: 25-year stochastic projection ------------------------
+  beta_params <- function(mean, cv) {
+    var <- (mean * cv)^2
+    common <- mean * (1 - mean) / var - 1
+    list(shape1 = mean * common, shape2 = (1 - mean) * common)
+  }
+  bp_s_adult <- beta_params(leslie_s_adult_f, pva_vital_rate_cv)
+  bp_s_juv <- beta_params(leslie_s_juv, pva_vital_rate_cv)
+  bp_p_breed <- beta_params(leslie_p_breed, pva_vital_rate_cv)
+
+  simulate_pva_trajectory <- function(n0_juv, n0_adult, n_years, annual_removal) {
+    # rbinom()'s size argument silently returns NA for a size that isn't
+    # (very nearly) a non-negative integer -- round() alone leaves a
+    # representable-double residue (e.g. 1367.000000000000227, from the
+    # eigenvector-based stable-stage split below) that trips this; wrapping
+    # every size in as.integer(round(.)) clears it for good.
+    n_juv <- as.integer(round(n0_juv)); n_adult <- as.integer(round(n0_adult))
+    traj <- numeric(n_years + 1)
+    traj[1] <- 2 * (n_juv + n_adult)
+    for (yr in seq_len(n_years)) {
+      s_adult_t <- rbeta(1, bp_s_adult$shape1, bp_s_adult$shape2)
+      s_juv_t <- rbeta(1, bp_s_juv$shape1, bp_s_juv$shape2)
+      p_breed_t <- rbeta(1, bp_p_breed$shape1, bp_p_breed$shape2)
+
+      n_breeders <- rbinom(1, n_adult, p_breed_t)
+      n_pups_total <- rpois(1, n_breeders * leslie_litter)
+      n_female_pups <- rbinom(1, n_pups_total, leslie_sex_ratio)
+      n_juv_recruits <- rbinom(1, n_female_pups, s_juv_t)
+
+      n_juv_survive <- rbinom(1, n_juv, s_juv_t)
+      n_adult_survive <- rbinom(1, n_adult, s_adult_t)
+
+      n_juv_next <- n_juv_recruits
+      n_adult_next <- n_juv_survive + n_adult_survive
+
+      female_removal <- annual_removal / 2
+      total_female <- n_juv_next + n_adult_next
+      if (total_female > 0 && female_removal > 0) {
+        juv_share <- round(female_removal * n_juv_next / total_female)
+        adult_share <- round(female_removal * n_adult_next / total_female)
+        n_juv_next <- max(0, n_juv_next - juv_share)
+        n_adult_next <- max(0, n_adult_next - adult_share)
+      }
+      n_juv <- n_juv_next; n_adult <- n_adult_next
+      traj[yr + 1] <- 2 * (n_juv + n_adult)
+    }
+    traj
+  }
+
+  n0_female <- nmin_assumed / 2
+  stable_dist <- Re(eigen(A_leslie_validated)$vectors[, 1]); stable_dist <- stable_dist / sum(stable_dist)
+  n0_juv <- round(n0_female * stable_dist[1])
+  n0_adult <- n0_female - n0_juv
+
+  pva_scenario_labels <- sprintf("%s threshold (%s/yr)", pbr_thresholds$facility, pbr_thresholds$threshold)
+  pva_scenarios <- bind_rows(
+    tibble::tibble(scenario = "No additional mortality", threshold = 0),
+    tibble::tibble(scenario = pva_scenario_labels, threshold = pbr_thresholds$threshold)
+  ) %>%
+    mutate(scenario = factor(scenario, levels = c("No additional mortality", pva_scenario_labels)))
+
+  set.seed(pva_seed)
+  pva_trajectories <- lapply(seq_len(nrow(pva_scenarios)), function(i) {
+    reps <- replicate(pva_n_reps, simulate_pva_trajectory(n0_juv, n0_adult, pva_n_years, pva_scenarios$threshold[i]))
+    tibble::tibble(
+      scenario = pva_scenarios$scenario[i],
+      year = rep(0:pva_n_years, pva_n_reps),
+      rep = rep(seq_len(pva_n_reps), each = pva_n_years + 1),
+      N = as.vector(reps)
+    )
+  }) %>% bind_rows()
+
+  pva_summary_by_year <- pva_trajectories %>%
+    group_by(scenario, year) %>%
+    summarise(median_N = median(N), q05 = quantile(N, 0.05), q25 = quantile(N, 0.25),
+              q75 = quantile(N, 0.75), q95 = quantile(N, 0.95), .groups = "drop")
+
+  quasi_ext_threshold <- pva_quasi_extinction_fraction * (2 * n0_female)
+  pva_risk_summary <- pva_trajectories %>%
+    group_by(scenario, rep) %>%
+    summarise(final_N = N[year == pva_n_years], ever_below_threshold = any(N < quasi_ext_threshold), .groups = "drop") %>%
+    group_by(scenario) %>%
+    summarise(
+      median_final_N = median(final_N), q05_final_N = quantile(final_N, 0.05), q95_final_N = quantile(final_N, 0.95),
+      p_decline = mean(final_N < 2 * n0_female) * 100, p_quasi_extinction = mean(ever_below_threshold) * 100,
+      .groups = "drop"
+    )
+
+  fig_pva_projection <- file.path(fig_dir, "pva_25yr_projection.png")
+  ggsave(fig_pva_projection, width = 11, height = 4.5, dpi = 150, plot = {
+    ggplot(pva_summary_by_year, aes(x = year)) +
+      geom_ribbon(aes(ymin = q05, ymax = q95, fill = scenario), alpha = 0.15) +
+      geom_ribbon(aes(ymin = q25, ymax = q75, fill = scenario), alpha = 0.3) +
+      geom_line(aes(y = median_N, colour = scenario), linewidth = 0.9) +
+      geom_hline(yintercept = 2 * n0_female, linetype = "dotted", colour = "grey40") +
+      facet_wrap(~scenario, nrow = 1) +
+      scale_colour_viridis_d(option = "C", end = 0.8, guide = "none") +
+      scale_fill_viridis_d(option = "C", end = 0.8, guide = "none") +
+      labs(
+        x = "Year", y = "Population (both sexes)",
+        title = paste0(pva_n_years, "-year stochastic projection, validated V. murinus demographic model"),
+        subtitle = paste0("N0 = ", 2 * n0_female, " (Nmin per facility); shaded: 50%/90% of ",
+                           pva_n_reps, " trajectories; dotted: N0")
+      ) +
+      theme_minimal() +
+      theme(strip.text = element_text(face = "bold"), plot.subtitle = element_text(size = 8))
+  })
+
+  ## ---- 5d. Three-way comparison summary --------------------------------
+  comparison_summary <- tibble::tibble(
+    Method = c("PBR / Niel-Lebreton (fixed benchmarks)", "PBR / Niel-Lebreton (Monte Carlo median)",
+               "Leslie matrix (validated, Safi's S_adult=0.76)", "PVA-lite (median trend, no removal)"),
+    `Growth rate (lambda)` = c(
+      sprintf("%.2f - %.2f", 1.20, 1.24),
+      sprintf("%.2f", stats::median(sim$lambda_max)),
+      sprintf("%.3f", lambda_leslie_validated),
+      sprintf("~%.3f (implied)", (pva_summary_by_year %>% filter(scenario == "No additional mortality", year == pva_n_years) %>% pull(median_N) / (2*n0_female))^(1/pva_n_years)
+      )
+    ),
+    `Consistent with imposed thresholds?` = c(
+      "By construction (thresholds back-solved from these)",
+      sprintf("Thresholds sit at %.0f-%.0fth percentile (conservative)", threshold_percentiles$percentile_rank[1], threshold_percentiles$percentile_rank[2]),
+      sprintf("Only reached at S_adult>=%.2f (top of range)", leslie_grid %>% filter(n_stages==2, lambda_Leslie>=1.20) %>% summarise(m=min(s_adult)) %>% pull(m)),
+      sprintf("%.0f-%.0f%% probability of decline over %d yrs under imposed thresholds", min(pva_risk_summary$p_decline[pva_risk_summary$scenario!="No additional mortality"]), max(pva_risk_summary$p_decline[pva_risk_summary$scenario!="No additional mortality"]), pva_n_years)
+    )
+  )
+
   ## ---- 5. Assemble report params -----------------------------------------
   list(
     project_ref = project_ref,
@@ -390,6 +576,23 @@ run_pbr_analysis <- function(fig_dir) {
     n_sim = mc_n_sim,
     pbr_quantiles = pbr_quantiles,
     threshold_percentiles = threshold_percentiles,
-    alpha_range_comparison = alpha_range_comparison
+    alpha_range_comparison = alpha_range_comparison,
+    leslie_s_juv = leslie_s_juv,
+    leslie_s_adult_f = leslie_s_adult_f,
+    leslie_s_adult_m = leslie_s_adult_m,
+    leslie_p_breed = leslie_p_breed,
+    leslie_litter = leslie_litter,
+    leslie_F = leslie_F,
+    lambda_leslie_validated = lambda_leslie_validated,
+    leslie_vs_pbr = leslie_vs_pbr,
+    fig_leslie_maturation = fig_leslie_maturation,
+    n0_total = 2 * n0_female,
+    pva_n_years = pva_n_years,
+    pva_n_reps = pva_n_reps,
+    pva_vital_rate_cv = pva_vital_rate_cv,
+    quasi_ext_threshold = quasi_ext_threshold,
+    pva_risk_summary = pva_risk_summary,
+    fig_pva_projection = fig_pva_projection,
+    comparison_summary = comparison_summary
   )
 }

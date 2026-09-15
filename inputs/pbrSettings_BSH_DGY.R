@@ -76,3 +76,33 @@ mc_seed  <- 1
 ## Reference document whose styles (headings, tables, header/footer, page
 ## numbering) the rendered report reuses -- see R/pbr_report.R.
 reference_docx_path <- "report/reference_template.docx"
+
+##
+## Leslie-matrix / PVA-lite cross-check (R/pbr_analysis.R section 5b-5c;
+## see references/leslie_matrix_parametrisation.md for the literature and
+## R/leslie_dekker_limpens.R for the validation this reuses).
+##
+
+## Species-specific vital rates (Safi 2006, as used by Dekker & Limpens
+## 2024's published V. murinus model, which this analysis independently
+## reproduces -- lambda = 1.047, matching exactly).
+leslie_s_juv    <- 0.62   # juvenile survival, both sexes
+leslie_s_adult_f <- 0.76  # adult female survival
+leslie_s_adult_m <- 0.42  # adult male survival (not used in the female
+                          # -only projection, kept for reference)
+leslie_p_breed  <- 0.87   # fraction of adult females reproducing
+leslie_litter   <- 1.8    # litter size, suburban colonies (Zhigalin & Moskvitina 2017)
+leslie_sex_ratio <- 0.5
+
+## Maturation-delay sensitivity: number of pre-reproductive stages tested
+## (2 = the validated published structure), same adult-survival range as
+## the PBR s x alpha analysis for direct comparability.
+leslie_stage_range <- 2:5
+
+## PVA-lite: 25-year stochastic projection controls.
+pva_n_years <- 25
+pva_n_reps  <- 1000
+pva_vital_rate_cv <- 0.10   # working assumption -- no inter-annual
+                            # variance estimate for V. murinus was found
+pva_seed <- 42
+pva_quasi_extinction_fraction <- 0.10  # of N0, a common PVA convention
