@@ -26,7 +26,11 @@ run_pbr_analysis <- function(fig_dir) {
   # Absolute path: rmarkdown::render() knits with the working directory set
   # to the .Rmd's own folder, so a path relative to the project root (as
   # passed in by the launcher) would not resolve inside the template.
-  fig_dir <- normalizePath(fig_dir)
+  # winslash = "/" matters on Windows: normalizePath()'s default backslash
+  # paths break the markdown image reference pandoc generates from
+  # knitr::include_graphics(), silently falling back to the image's alt
+  # -text description instead of embedding it.
+  fig_dir <- normalizePath(fig_dir, winslash = "/")
 
   ## ---- 1. Reverse-engineer the imposed thresholds ------------------------
   fr_original <- fr_from_iucn(iucn_status_original_guess)
