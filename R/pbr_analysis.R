@@ -124,10 +124,29 @@ run_pbr_analysis <- function(fig_dir) {
   lambda_range_txt <- sprintf("lambda_max = %.2f-%.2f here (always > 1, growing)",
                                min(sens_grid$lambda_max), max(sens_grid$lambda_max))
 
+  # One colour per benchmark contour (named by its own value) instead of a
+  # single colour for both lines -- two same-coloured, unlabelled isolines
+  # are not distinguishable from each other. Avoid white: invisible as a
+  # legend key swatch against the (white) legend background, even though
+  # it reads fine on the dark raster itself. Reused on the two elasticity
+  # plots below as well as fig_lambda_max, so a reader can see directly
+  # where the paper's lambda_max benchmarks sit within the same (s, alpha)
+  # space the elasticity values are plotted over.
+  benchmark_labels <- as.character(lambda_max_benchmarks)
+  benchmark_colours <- setNames(c("cyan", "chartreuse")[seq_along(lambda_max_benchmarks)], benchmark_labels)
+  lambda_contour <- function() {
+    list(
+      geom_contour(aes(z = lambda_max, colour = after_stat(factor(level))),
+                   breaks = lambda_max_benchmarks, linewidth = 0.5),
+      scale_colour_manual(name = "Benchmark", values = benchmark_colours)
+    )
+  }
+
   fig_elasticity_survival <- file.path(fig_dir, "elasticity_survival.png")
   ggsave(fig_elasticity_survival, width = 7, height = 4.5, dpi = 150, plot = {
-    ggplot(sens_grid, aes(x = s, y = alpha, fill = E_s)) +
-      geom_raster(interpolate = TRUE) +
+    ggplot(sens_grid, aes(x = s, y = alpha)) +
+      geom_raster(aes(fill = E_s), interpolate = TRUE) +
+      lambda_contour() +
       scale_fill_viridis_c(name = "E[s]", option = "B", direction = -1) +
       labs(x = "Adult survival (s)", y = "Age at first breeding (alpha)",
            title = "Elasticity of lambda_max to adult survival",
@@ -138,8 +157,9 @@ run_pbr_analysis <- function(fig_dir) {
 
   fig_elasticity_alpha <- file.path(fig_dir, "elasticity_alpha.png")
   ggsave(fig_elasticity_alpha, width = 7, height = 4.5, dpi = 150, plot = {
-    ggplot(sens_grid, aes(x = s, y = alpha, fill = E_alpha)) +
-      geom_raster(interpolate = TRUE) +
+    ggplot(sens_grid, aes(x = s, y = alpha)) +
+      geom_raster(aes(fill = E_alpha), interpolate = TRUE) +
+      lambda_contour() +
       scale_fill_viridis_c(name = "E[alpha]", option = "A", direction = -1) +
       labs(x = "Adult survival (s)", y = "Age at first breeding (alpha)",
            title = "Elasticity of lambda_max to age at first breeding",
@@ -148,22 +168,12 @@ run_pbr_analysis <- function(fig_dir) {
       theme(plot.subtitle = element_text(size = 9))
   })
 
-  # One colour per benchmark contour (named by its own value) instead of a
-  # single colour for both lines -- two same-coloured, unlabelled isolines
-  # are not distinguishable from each other.
-  benchmark_labels <- as.character(lambda_max_benchmarks)
-  # Avoid white: invisible as a legend key swatch against the (white)
-  # legend background, even though it reads fine on the dark raster itself.
-  benchmark_colours <- setNames(c("cyan", "chartreuse")[seq_along(lambda_max_benchmarks)], benchmark_labels)
-
   fig_lambda_max <- file.path(fig_dir, "lambda_max.png")
   ggsave(fig_lambda_max, width = 8, height = 4.5, dpi = 150, plot = {
     ggplot(sens_grid, aes(x = s, y = alpha)) +
       geom_raster(aes(fill = lambda_max), interpolate = TRUE) +
-      geom_contour(aes(z = lambda_max, colour = after_stat(factor(level))),
-                   breaks = lambda_max_benchmarks, linewidth = 0.5) +
+      lambda_contour() +
       scale_fill_viridis_c(name = "lambda_max", option = "C") +
-      scale_colour_manual(name = "Benchmark", values = benchmark_colours) +
       labs(
         x = "Adult survival (s)", y = "Age at first breeding (alpha)",
         title = "lambda_max derived from the demographic-invariant approximation",
