@@ -137,3 +137,53 @@ cat(
 )
 
 cat("\nWrote", file.path(fig_dir, "leslie_vespertilio_sensitivity.png"), "\n")
+
+# ---- 4. Bias-aware correction: Safi's rates as a LOWER bound -------------
+# A naive return rate (marked in year t, recaptured in t+1) is mathematically
+# the product of true survival and recapture probability (and site fidelity),
+# not survival alone -- so it is a lower bound on true survival, never an
+# overestimate. No direct naive-vs-CJS comparison or a more recent
+# V. murinus-specific CJS estimate could be located this session (see
+# references/leslie_matrix_parametrisation.md), so the upper end of the
+# corrected range is anchored instead on CJS-based estimates for
+# ecologically similar, related vespertilionines already used elsewhere in
+# this analysis: Pipistrellus pipistrellus adult survival ~0.80 (+/-0.05)
+# from Sendor & Simon (2003), and the 0.9 "reasonable higher-end" bat
+# adult survival benchmark Frick et al. themselves adopt. This is a
+# plausibility anchor, not a formal bias correction (no correction factor
+# specific to Safi's study design could be derived from what was
+# accessible this session).
+s_adult_corrected_range <- c(0.76, 0.90)  # Safi's raw value as the floor
+s_juv_corrected_range <- c(0.62, 0.75)    # Safi's raw value as the floor
+
+corrected_grid <- tidyr::expand_grid(
+  alpha_label = names(alpha_structures),
+  scenario = c("Safi raw (uncorrected)", "Bias-aware upper bound"),
+  fecundity_label = c("suburban", "urban")
+) %>%
+  mutate(
+    alpha = alpha_structures[alpha_label],
+    fecundity = ifelse(fecundity_label == "suburban", fecundity_suburban, fecundity_urban),
+    s_adult = ifelse(scenario == "Safi raw (uncorrected)", s_adult_corrected_range[1], s_adult_corrected_range[2]),
+    s_juv = ifelse(scenario == "Safi raw (uncorrected)", s_juv_corrected_range[1], s_juv_corrected_range[2]),
+    lambda_Leslie = mapply(leslie_lambda_from_params, s_adult, s_juv, alpha, fecundity),
+    lambda_vs_1.24 = lambda_Leslie - 1.24,
+    lambda_vs_1.20 = lambda_Leslie - 1.20
+  )
+
+cat("\nEffect of correcting for the known naive-return-rate downward bias\n",
+    "(raw Safi values vs a bias-aware upper bound anchored on Pipistrellus\n",
+    "pipistrellus CJS survival and Frick et al.'s own bat benchmark):\n", sep = "")
+print(corrected_grid %>%
+        select(alpha_label, scenario, fecundity_label, s_adult, s_juv, lambda_Leslie, lambda_vs_1.24, lambda_vs_1.20) %>%
+        arrange(alpha_label, fecundity_label, scenario))
+
+# Isolate how much of the correction's effect comes from s_adult alone,
+# given it has by far the largest elasticity (step 3 above)
+adult_only_effect <- tibble::tibble(
+  s_adult = s_adult_corrected_range,
+  lambda_at_alpha1_suburban = mapply(leslie_lambda_from_params, s_adult, s_juv_point, 1, fecundity_suburban)
+)
+cat("\nHolding juvenile survival and fecundity at Safi's raw values (alpha=1, suburban),\n",
+    "correcting only adult survival (0.76 -> 0.90):\n", sep = "")
+print(adult_only_effect)
