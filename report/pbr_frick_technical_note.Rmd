@@ -1,0 +1,413 @@
+---
+title: "PBR Interpretation based on Frick et al. 2026"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+})
+
+source(here::here("R", "pbr_functions.R"))
+```
+
+```{r source-thresholds, include=FALSE}
+# Re-uses R/pbr_frick_bsh_dgy_thresholds.R as-is, so the report and the
+# independently runnable script can never drift apart: same seed, same
+# simulation, same numbers. Console output and its own plot are suppressed
+# here; only the named objects it creates are used below.
+old_wd <- setwd(here::here())
+source("R/pbr_frick_bsh_dgy_thresholds.R", local = knitr::knit_global())
+setwd(old_wd)
+```
+
+Document history / List of changes.
+
+| Version | Changes | Date of changes | Authors | Review | Review Date | Approval |
+|---|---|---|---|---|---|---|
+| Version 1 | First draft | 2026-05-07 | Paulo Cardoso | | | |
+| Version 2 | Corrected recovery factor (Fr); reverse-engineered and plausibility-checked the local population estimate (Nmin); updated age-at-first-breeding range from a literature review; rebuilt the sensitivity, response-surface and Monte Carlo analyses on consistent, reproducible parameter ranges | 2026-09 | Paulo Cardoso | | | |
+
+# Context
+
+This technical note reviews the Potential Biological Removal (PBR)
+framework proposed by Frick et al. (2026) for bats at wind-energy
+facilities, and applies it to the Parti-coloured bat (*Vespertilio
+murinus*) fatality thresholds currently imposed at the BSH and DGY wind
+farms (144 and 120 bats/year respectively). No documented derivation of
+these two threshold values is available, and no independent local
+population estimate for the species in this region exists or can
+realistically be obtained. The note therefore works backwards from the
+imposed thresholds to identify a parsimonious, checkable set of
+assumptions consistent with them, and then tests how sensitive those
+thresholds are to reasonable demographic uncertainty, rather than to the
+single fixed parameter values the framework uses by default.
+
+# PBR Threshold Uncertainty
+
+## Frick et al. adjusted PBR framework
+
+The PBR framework presented by Frick and colleagues (Frick et al. 2026,
+herein referred to as Frick) adapts the classical Potential Biological
+Removal concept to bat mortality at wind-energy facilities. It retains the
+precautionary structure of the original PBR formulation while addressing
+known limitations of applying marine-mammal-derived PBR methods to volant
+terrestrial taxa, particularly long-lived bat species characterised by low
+fecundity, delayed maturity, and strong sensitivity to adult survival.
+
+Under the adjusted framework, PBR is expressed as:
+
+$$PBR = \frac{1}{2} R_{max} \cdot F_r \cdot N_{min}$$
+
+where $R_{max} = \lambda_{max} - 1$ is the maximum annual population growth
+rate, $F_r$ is a recovery factor linked to IUCN conservation status, and
+$N_{min}$ is a conservative lower-bound estimate of local abundance.
+
+A key conceptual shift in the Frick proposal is the move from broad
+regional or continental population framing towards a project-scale local
+population proxy. Local abundance bounds ($N_L$ and $N_U$) are derived from
+the interaction area surrounding the wind facility combined with plausible
+density estimates, and a lognormal formulation is then used to derive the
+geometric mean abundance estimate ($\hat{N}$), its coefficient of variation
+($CV_{\hat{N}}$), and ultimately $N_{min}$. Uncertainty is therefore
+incorporated explicitly into the abundance term: poorly constrained
+abundance estimates are penalised with lower, more precautionary PBR
+values.
+
+$\lambda_{max}$ is standardised using the Niel & Lebreton (2005)
+demographic-invariant approximation, from adult survival ($s$) and age at
+first breeding ($\alpha$):
+
+$$\lambda_{max} \approx \frac{(s\alpha - s + \alpha + 1) + \sqrt{(s - s\alpha - \alpha - 1)^2 - 4s\alpha^2}}{2\alpha}$$
+
+Frick et al. propose precautionary fixed $\lambda_{max}$ values (1.24 for
+most bats, 1.20 for families with later age at first breeding such as
+Pteropodidae) to reduce sensitivity to poorly constrained demographic
+inputs. The framework remains structurally dependent on several uncertain
+ecological assumptions, including the definition of the local interacting
+population, density estimation, recovery-factor selection, and the
+demographic assumptions underlying the fixed $\lambda_{max}$ values.
+Accordingly, PBR thresholds are best interpreted as precautionary decision
+bands rather than deterministic operational limits, particularly where
+they are used to calibrate mitigation measures such as curtailment.
+
+## Sensitivity and elasticity analysis
+
+```{r elasticity-grid}
+s_seq <- seq(0.70, 0.95, by = 0.01)
+alpha_seq <- seq(1.5, 3.5, by = 0.1)
+
+partials_lambda <- function(s, alpha, eps_s = 1e-5, eps_a = 1e-5) {
+  lam <- lambda_max_niel(s, alpha)
+  dlds <- (lambda_max_niel(s + eps_s, alpha) - lambda_max_niel(s - eps_s, alpha)) / (2 * eps_s)
+  dlda <- (lambda_max_niel(s, alpha + eps_a) - lambda_max_niel(s, alpha - eps_a)) / (2 * eps_a)
+  tibble::tibble(
+    lambda_max = lam, d_lambda_ds = dlds, d_lambda_dalpha = dlda,
+    E_s = dlds * s / lam, E_alpha = dlda * alpha / lam
+  )
+}
+
+sens_grid <- tidyr::expand_grid(s = s_seq, alpha = alpha_seq) %>%
+  rowwise() %>%
+  mutate(out = list(partials_lambda(s, alpha))) %>%
+  ungroup() %>%
+  tidyr::unnest(out)
+
+elasticity_ranges <- sens_grid %>%
+  summarise(
+    E_s_min = min(E_s), E_s_max = max(E_s), E_s_median = median(E_s),
+    E_alpha_min = min(E_alpha), E_alpha_max = max(E_alpha), E_alpha_median = median(E_alpha)
+  ) %>%
+  tidyr::pivot_longer(everything(), names_to = c("Parameter", "Statistic"),
+                       names_pattern = "E_(s|alpha)_(min|max|median)", values_to = "Value") %>%
+  mutate(Parameter = recode(Parameter, s = "Adult survival (s)", alpha = "Age at first breeding (alpha)")) %>%
+  tidyr::pivot_wider(names_from = Statistic, values_from = Value) %>%
+  select(Parameter, min, max, median)
+```
+
+Sensitivity and elasticity analyses were undertaken to evaluate how
+uncertainty in the two demographic parameters used by the Niel & Lebreton
+approximation, adult survival ($s$) and age at first breeding ($\alpha$),
+propagates into $\lambda_{max}$ and consequently into PBR. Parameter ranges
+were set at $s \in$ [`r min(s_seq)`, `r max(s_seq)`] and $\alpha \in$
+[`r min(alpha_seq)`, `r max(alpha_seq)`] years, the latter following the
+literature review below. For each combination, $\lambda_{max}$ was
+recalculated and local sensitivity estimated numerically using finite
+differences. Elasticity is a dimensionless proportional sensitivity
+metric: the expected percentage variation in $\lambda_{max}$ resulting from
+a 1% variation in a demographic parameter.
+
+```{r elasticity-table}
+knitr::kable(elasticity_ranges, digits = 3, caption = "Elasticity of lambda_max to each demographic parameter.")
+```
+
+$\lambda_{max}$ is substantially more sensitive to uncertainty in adult
+survival than to uncertainty in age at first breeding across the explored
+demographic space: a 1% variation in adult survival produces roughly
+`r round(abs(elasticity_ranges$min[elasticity_ranges$Parameter == "Adult survival (s)"]), 2)`-`r round(abs(elasticity_ranges$max[elasticity_ranges$Parameter == "Adult survival (s)"]), 2)`%
+variation in $\lambda_{max}$, versus
+`r round(abs(elasticity_ranges$min[elasticity_ranges$Parameter == "Age at first breeding (alpha)"]), 2)`-`r round(abs(elasticity_ranges$max[elasticity_ranges$Parameter == "Age at first breeding (alpha)"]), 2)`%
+for an equivalent variation in age at first breeding. Sensitivity is not
+spatially uniform: combinations of relatively high adult survival and
+earlier reproductive maturity produce the largest elastic responses, which
+is particularly relevant because adult survival is also among the least
+well-constrained demographic parameters for most bat species.
+
+```{r fig-elasticity-survival, fig.width=7, fig.height=4.5}
+ggplot(sens_grid, aes(x = s, y = alpha, fill = E_s)) +
+  geom_raster(interpolate = TRUE) +
+  scale_fill_viridis_c(name = "E[s]", option = "B", direction = -1) +
+  labs(x = "Adult survival (s)", y = "Age at first breeding (alpha)",
+       title = "Elasticity of lambda_max to adult survival") +
+  theme_minimal()
+```
+
+```{r fig-elasticity-alpha, fig.width=7, fig.height=4.5}
+ggplot(sens_grid, aes(x = s, y = alpha, fill = E_alpha)) +
+  geom_raster(interpolate = TRUE) +
+  scale_fill_viridis_c(name = "E[alpha]", option = "A", direction = -1) +
+  labs(x = "Adult survival (s)", y = "Age at first breeding (alpha)",
+       title = "Elasticity of lambda_max to age at first breeding") +
+  theme_minimal()
+```
+
+These results support the central rationale of the Frick adjusted
+framework: uncertainty in demographic parameterisation can materially
+influence resulting PBR values, and precautionary fixed-$\lambda_{max}$
+assumptions reduce excessive sensitivity to uncertain demographic inputs.
+However, substantial uncertainty remains even under a fixed-$\lambda_{max}$
+approach, through the interaction of demographic assumptions, local
+abundance estimation, and recovery-factor selection -- the remainder of
+this note works through that interaction for the Parti-coloured bat at BSH
+and DGY specifically.
+
+## Evidence base for age at first breeding
+
+For PBR, $\alpha$ should represent effective age at first reproduction --
+the age at which a female actually recruits offspring into the population
+-- not merely physiological sexual maturity. A literature review for
+*Vespertilio murinus* was undertaken on this basis.
+
+| Source | Species / group | Relevant information | Implication for alpha |
+|---|---|---|---|
+| AnAge database | *Vespertilio murinus* | Female and male sexual maturity listed at 730 days (~2 years); litter size 2; one litter per year. | Supports alpha ~= 2 as a defensible value. |
+| Haensel 2010, *Nyctalus* | *Vespertilio murinus* | Some females raise young in their first year of life; the author's own data suggest most or all females may reach sexual maturity in the year of birth and raise young as one-year-olds, stated cautiously. | Suggests alpha = 1-2 may be plausible; alpha = 2 is not an optimistic assumption. |
+| Ratpenats species account | *Vespertilio murinus* | Many females mate in their first autumn. | Supports early sexual maturity, but mating is not the same as confirmed breeding. |
+| Racey & Entwistle synthesis, cited in Frick et al.'s own discussion | Bats broadly | The general view for most bats is that age at first breeding is around 1 year, though first-year breeding probability can be lower; Frick et al. use alpha = 1.5 as a general benchmark and suggest alpha = 2 for some families. | Supports alpha = 1.5-2 as plausible for many bat species. |
+| Cryan et al. 2012 | Migratory tree bats killed at wind turbines | Ovarian development indicating sexual maturity even in first-year females for several migratory tree-roosting species. | Useful analogue: some wind-vulnerable migratory bats mature very early. |
+| Komar et al. 2020 | Male *Vespertilio murinus* | Food restriction delayed seasonal sexual maturation in males; well-fed males matured earlier. | Maturation timing is condition-dependent; male data are less directly useful for PBR (which uses female recruitment). |
+
+Table: Sources reviewed for age at first breeding in the Parti-coloured
+bat.
+
+$\alpha = 2$ is a defensible, reasonably conservative central value for PBR
+purposes under the effective-recruitment reading of $\alpha$, and is
+directly supported by the AnAge sexual-maturity estimate. $\alpha = 1.5$
+(the paper's own general bat benchmark) is a plausible lower bound, though
+it rests on thinner, more cautiously stated species-specific evidence.
+$\alpha = 3-4$ has no direct empirical support for *V. murinus* in the
+sources reviewed; it remains a useful precautionary sensitivity scenario
+for ecological constraints on effective recruitment (migration costs, poor
+juvenile survival, low first-year breeding probability), but is not the
+best-supported biological estimate. This review supports using
+$\alpha \in$ [1.5, 3.5] years as the working range throughout this note, in
+place of a single fixed value.
+
+## Reverse-engineering the BSH and DGY thresholds
+
+```{r inline-threshold-values}
+fr_original <- Fr_original_guess
+fr_corrected <- Fr
+nmin_val <- Nmin_assumed
+```
+
+BSH and DGY were each given a fixed annual fatality threshold for the
+Parti-coloured bat -- 144 and 120 bats/year respectively -- without a
+documented derivation. Since no independent local population estimate for
+the species exists for this region, plausibility is assessed by working
+backwards from the imposed thresholds under the Frick PBR equation.
+
+```{r backsolve-table}
+knitr::kable(backsolve_grid, digits = c(0, 0, 2, 0),
+             col.names = c("Facility", "Threshold (bats/yr)", "Fixed lambda_max", "Required Nmin"),
+             caption = "Local population size (Nmin) required to reproduce each imposed threshold, under Fr = 0.3 (Near Threatened) and the paper's two fixed lambda_max benchmarks.")
+```
+
+Pairing BSH/144 with $\lambda_{max} = 1.24$ and DGY/120 with
+$\lambda_{max} = 1.20$ both back-solve to the same required
+$N_{min} = `r format(nmin_val, big.mark = ",")`$ under $F_r = `r fr_original`$
+(Near Threatened); no other pairing gives a shared, round value. This is
+the most parsimonious explanation available for how the two thresholds
+were obtained: a single assumed local population of
+~`r format(nmin_val, big.mark = ",")` individuals, combined with the
+paper's two $\lambda_{max}$ benchmarks applied per facility.
+
+Whether `r format(nmin_val, big.mark = ",")` individuals is a plausible
+local population for the region can be assessed via the interaction area
+it implies under the paper's own default density proxy (5.5-18.2
+bats/km$^2$, based on *Pipistrellus pipistrellus*, used in the absence of
+species-specific density data): $N_{min} = `r format(nmin_val, big.mark = ",")`$
+implies an interaction area of approximately `r round(area_for_4000)` km$^2$,
+plausible as a regional buffer around two wind farms, whereas
+$N_{min} = 40{,}000$ (an order of magnitude larger) would imply
+approximately `r round(area_for_40000)` km$^2$ -- well beyond a
+project-scale local population as the framework defines it. This does not
+confirm `r format(nmin_val, big.mark = ",")` individuals as correct, but it
+is the more defensible order of magnitude of the two, and is used as the
+working assumption throughout the rest of this note.
+
+$F_r = 0.3$ corresponds to a Near Threatened status. The Parti-coloured bat
+is not a threatened category, so the defensible recovery factor is
+$F_r = `r fr_corrected`$ (Least Concern, declining-or-unknown trend). Holding
+$N_{min}$ at `r format(nmin_val, big.mark = ",")` and correcting only $F_r$:
+
+```{r pbr-corrected-fr-table}
+knitr::kable(pbr_corrected_fr, digits = 1,
+             col.names = c("Fixed lambda_max", "PBR (bats/yr)"),
+             caption = paste0("PBR at Nmin = ", format(nmin_val, big.mark = ","), ", Fr = ", fr_corrected, "."))
+```
+
+PBR moves from 144 to `r round(pbr_corrected_fr$PBR[pbr_corrected_fr$lambda_max_fixed == 1.24])`
+($\lambda_{max} = 1.24$) and from 120 to
+`r round(pbr_corrected_fr$PBR[pbr_corrected_fr$lambda_max_fixed == 1.20])`
+($\lambda_{max} = 1.20$) from the recovery-factor correction alone, before
+any change to $\lambda_{max}$ itself is considered.
+
+## PBR response surfaces
+
+```{r fig-response-surfaces, fig.width=10, fig.height=3.6}
+Fr_scenarios <- c(0.1, 0.3, 0.5, 1.0)
+
+surface_grid <- tidyr::expand_grid(
+  s = seq(0.70, 0.95, length.out = 60),
+  alpha = seq(1.5, 3.5, length.out = 60),
+  Fr = Fr_scenarios
+) %>%
+  mutate(
+    lambda_max = lambda_max_niel(s, alpha),
+    PBR = pbr_from_components(nmin_val, Fr, lambda_max),
+    Fr_label = factor(paste0("Fr = ", Fr), levels = paste0("Fr = ", Fr_scenarios))
+  )
+
+ggplot(surface_grid, aes(x = s, y = alpha, fill = PBR)) +
+  geom_raster(interpolate = TRUE) +
+  geom_contour(aes(z = PBR), breaks = c(120, 144), colour = "white", linewidth = 0.35) +
+  facet_wrap(~Fr_label, nrow = 1) +
+  scale_fill_viridis_c(name = "PBR\n(bats/yr)", option = "C") +
+  labs(
+    x = "Adult survival (s)", y = "Age at first breeding (alpha, yrs)",
+    title = "PBR response surfaces across s, alpha and Fr",
+    subtitle = paste0("Nmin = ", format(nmin_val, big.mark = ","),
+                       "; white contours: PBR = 120 (DGY) and 144 (BSH)")
+  ) +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+Across the plausible demographic range, the 120/144 contours only appear
+within the $F_r = 0.3$ and $F_r = 0.5$ panels, and only for a narrow
+combination of relatively high adult survival and low age at first
+breeding -- outside that narrow band, PBR departs from the imposed
+thresholds even before changing $F_r$.
+
+## Monte Carlo simulation outputs
+
+Uncertainty in adult survival and age at first breeding was propagated
+into $\lambda_{max}$ and PBR by simulation, holding $N_{min} = `r format(nmin_val, big.mark = ",")`$
+and $F_r = `r fr_corrected`$ fixed, with $s \sim U(0.70, 0.95)$ and
+$\alpha \sim U(1.5, 3.5)$ (`r format(n_sim, big.mark = ",")` draws).
+
+```{r mc-quantile-table}
+q_tbl <- tibble::tibble(
+  Quantile = names(pbr_quantiles),
+  `PBR (bats/yr)` = round(pbr_quantiles, 1)
+)
+knitr::kable(q_tbl, caption = "Simulated PBR distribution quantiles.")
+```
+
+```{r mc-percentile-table}
+knitr::kable(
+  threshold_percentiles, digits = 2,
+  col.names = c("Facility", "Threshold (bats/yr)", "Percentile rank in simulated PBR", "Median ratio", "P95 ratio"),
+  caption = "Where the imposed thresholds fall within the simulated PBR distribution."
+)
+```
+
+BSH (144) and DGY (120) sit at the
+`r round(threshold_percentiles$percentile_rank_corrected[threshold_percentiles$facility == "BSH"], 0)`th
+and
+`r round(threshold_percentiles$percentile_rank_corrected[threshold_percentiles$facility == "DGY"], 0)`th
+percentile of the simulated distribution respectively -- on the low,
+conservative side, not the permissive side. Median simulated PBR is
+`r round(threshold_percentiles$median_ratio[threshold_percentiles$facility == "BSH"], 2)`x
+the BSH threshold and
+`r round(threshold_percentiles$median_ratio[threshold_percentiles$facility == "DGY"], 2)`x
+the DGY threshold; at the 95th percentile the ratios reach
+`r round(threshold_percentiles$p95_ratio[threshold_percentiles$facility == "BSH"], 2)`x
+and
+`r round(threshold_percentiles$p95_ratio[threshold_percentiles$facility == "DGY"], 2)`x
+respectively.
+
+```{r mc-alpha-comparison-table}
+knitr::kable(
+  alpha_range_comparison, digits = 1,
+  col.names = c("Alpha range", "Q05", "Median", "Q95", "% below 144", "% below 120"),
+  caption = "Effect of the alpha range on the simulated PBR distribution (Fr = 0.5, Nmin = 4000)."
+)
+```
+
+Moving from the wider, less literature-grounded $\alpha \in [2, 4]$ range
+to the range the evidence review supports ($\alpha \in [1.5, 3.5]$) shifts
+the simulated PBR distribution further up, not down: the literature review
+therefore reinforces, rather than weakens, the conclusion below.
+
+```{r fig-pbr-density, fig.width=7, fig.height=4}
+ggplot(sim, aes(x = PBR)) +
+  geom_density(fill = "grey80", colour = "grey40") +
+  geom_vline(data = thresholds, aes(xintercept = threshold, colour = facility),
+             linewidth = 0.8, linetype = "dashed") +
+  labs(
+    title = "Simulated PBR distribution vs. imposed thresholds",
+    subtitle = paste0("Fr = ", fr_corrected, "; Nmin = ", format(nmin_val, big.mark = ","),
+                       "; s ~ U(0.70, 0.95); alpha ~ U(1.5, 3.5)"),
+    x = "PBR (bats/year)", y = "Density", colour = "Imposed threshold"
+  ) +
+  theme_minimal()
+```
+
+## Preliminary interpretation and implications
+
+Under a defensible, non-optimistic parametrisation -- recovery factor
+corrected to the species' actual (non-threatened) status, and demographic
+parameters treated as a literature-supported range rather than a single
+fixed point -- the currently imposed thresholds of 144 (BSH) and 120 (DGY)
+bats/year sit near the conservative end of the resulting PBR distribution
+rather than at its centre. This indicates the current thresholds are not
+unreasonably permissive; if anything, a flexible parametrisation would
+support materially higher values, approaching double the current figures
+at the upper end of the plausible range.
+
+These results reinforce that any operational threshold derived from PBR
+should be accompanied by transparent documentation of the underlying
+calculations, demographic assumptions, local population estimates, and
+uncertainty analysis. A nominal threshold can still serve as a
+precautionary reference point, but mitigation decisions should
+additionally consider:
+
+- the plausible uncertainty interval surrounding the threshold;
+- temporal trends in fatality estimates;
+- uncertainty associated with PCFM-derived mortality estimates;
+- the conservation relevance and demographic sensitivity of the affected species;
+- the spatial concentration and recurrence of fatalities;
+- the expected effectiveness and proportionality of mitigation measures;
+- and the broader adaptive-management context in which the threshold is applied.
+
+Presenting PBR as a range rather than a single fixed number provides a
+more robust and defensible basis for adaptive management decisions where
+demographic parameters, local population structure, and abundance
+estimates remain incompletely resolved -- as is the case for the
+Parti-coloured bat in this region.
