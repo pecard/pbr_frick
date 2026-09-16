@@ -5,3 +5,10 @@
 Rplots.pdf
 figures/
 outputs/
+
+# Real fatality/carcass records (PCFM) -- contains real project and turbine
+# identifiers and real mortality counts; never committed. Scripts that read
+# from here (R/load_real_mortality_data.R) are committed as normal -- only
+# the data itself, and anything derived that could leak real counts, stays
+# local.
+data-raw/

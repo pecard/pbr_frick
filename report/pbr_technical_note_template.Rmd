@@ -63,16 +63,18 @@ params:
   fig_leslie_boundary_surface: ""
   nmin_vs_lambda_sensitivity: !r NULL
   fig_nmin_lambda_surface: ""
-  adaptive_checkpoint_week: !r NULL
-  adaptive_forecast_summary: !r NULL
-  adaptive_focus_project: ""
-  adaptive_n_turbines: !r NULL
-  adaptive_n_curtailed: !r NULL
-  adaptive_pct_turbines_curtailed: !r NULL
-  adaptive_pct_mortality_captured: !r NULL
-  adaptive_required_abs_reduction: !r NULL
-  fig_adaptive_dashboard: ""
-  fig_turbine_pareto: ""
+  real_correction_factor: !r NULL
+  real_curtailment_start: ""
+  real_curtailment_week: !r NULL
+  real_checkpoint_week: !r NULL
+  real_overage_summary: !r NULL
+  real_yoy_summary: !r NULL
+  real_forecast_summary: !r NULL
+  real_focus_project: ""
+  real_n_turbines_focus: !r NULL
+  real_n_turbines_top80: !r NULL
+  fig_real_dashboard: ""
+  fig_real_turbine_pareto: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -97,7 +99,8 @@ Document history / List of changes.
 | Version 5 | Replaced the kaleido-based 3D response-surface export with a fixed-camera static image; anonymised facility names to Project 1/Project 2 for external presentation; added a direct quantitative comparison of PBR's sensitivity to Nmin versus lambda_max, and a synthesising Nmin x lambda_max surface figure | 2026-09 | Paulo Cardoso |
 | Version 6 | Restructured section hierarchy (Leslie matrix cross-check and the closing interpretation promoted to top-level sections; PVA-lite, the three-way comparison, the boundary analysis and the Nmin discussion grouped under a new "Comparing approaches" section); improved legibility of four figures; rewrote the closing section as "Integrated interpretation and implications", synthesising the full body of evidence rather than the PBR/Niel-Lebreton sensitivity analysis alone | 2026-09 | Paulo Cardoso |
 | Version 7 | Promoted PVA-lite to its own top-level section (4), ahead of "Comparing approaches" (5, now containing the three-way comparison, the boundary analysis, the Nmin discussion and the capacity-vs-population-size synthesis as 5.1-5.4); "Integrated interpretation and implications" is now section 6 | 2026-09 | Paulo Cardoso |
-| Version 8 | Added section 7, "Towards operational adaptive mortality management" -- a proposed (not yet validated) methodology for converting the annual PBR reference into a weekly PCFM-driven control chart and turbine-level curtailment allocation. Entirely illustrative pending the real weekly PCFM dataset and retrospective validation | 2026-09 | Paulo Cardoso |
+| Version 8 | Added section 7, "Towards operational adaptive mortality management" -- a proposed methodology for converting the annual PBR reference into a weekly PCFM-driven control chart and turbine-level curtailment allocation, illustrated on synthetic data pending the real weekly PCFM dataset | 2026-09 | Paulo Cardoso |
+| Version 9 | Section 7 now applies the adaptive-management mechanism to the real 2025-2026 PCFM carcass data (V. murinus, GenEst-corrected), in place of the earlier synthetic illustration: year-to-date mortality vs. the annual reference, a year-over-year comparison, a forward forecast, and pre-curtailment turbine-level concentration (turbine identifiers anonymised) | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -818,17 +821,7 @@ framework. Where those data remain uncertain, PBR is more appropriately
 represented as a decision range with explicitly documented assumptions
 than as a uniquely determined annual mortality limit.
 
-# Towards operational adaptive mortality management (proposed framework)
-
-**Everything in this section is illustrative.** The seasonal risk
-profile, the weekly fatality series and the turbine-level fatality
-distribution used below are synthetic, built only to demonstrate a
-proposed monitoring mechanism end to end -- they are not real PCFM
-counts, and the specific figures they produce (trigger status, forecasts,
-turbine selections) describe none of `r params$project_ref`'s actual
-performance. This section sets out a methodology to be populated with the
-real weekly (ideally turbine-level) PCFM series once compiled, and
-validated retrospectively against it, before any operational use.
+# Towards operational adaptive mortality management
 
 The preceding sections address a different question from the one that
 actually has to be answered operationally. They ask what fatality
@@ -878,10 +871,6 @@ that point. Observed cumulative mortality crossing that trajectory
 merely "a bad week", with a full season's worth of response time still
 available.
 
-```{r fig-adaptive-dashboard}
-knitr::include_graphics(params$fig_adaptive_dashboard)
-```
-
 Each trigger tier maps to an escalation step on the turbines already
 identified as critical: maintain the current prescription (GREEN);
 increase curtailment intensity, e.g. a lower cut-in speed or extended
@@ -896,64 +885,123 @@ possible once curtailment intensity itself, not just its presence or
 absence, has been varied across enough weeks -- a natural extension once
 more seasons of PCFM under varying prescriptions accumulate.
 
-## Forecasting the season, and translating an exceedance into turbines
+## A first real operational example (2025-2026 PCFM data)
 
-Beyond the current trigger status, the control chart above supports a
-forward-looking forecast: given the realised mortality rate relative to
-the reference's own pace over a recent window, the remaining season can
-be projected forward stochastically to estimate where the year is likely
-to finish under the current regime, and with what probability it exceeds
-the annual reference. This is a forecast conditional on the current
-regime continuing unchanged, not a claim about the true underlying
-mortality process, and its uncertainty reflects only the stochastic
-projection of the remaining season -- not additional uncertainty in the
-PCFM estimate to date, which would require the detection-probability and
-carcass-persistence model underlying the real PCFM estimator (not
-available in this illustrative demonstration).
+The mechanism above is applied here to the actual carcass search data
+available for `r params$project_ref` -- *V. murinus* records from each
+project's carcass search log, corrected for detection probability using
+the project's working multiplicative rule
+(unbiased estimate = `r params$real_correction_factor` x raw carcasses
+found). Curtailment at the turbines already identified as critical began
+`r params$real_curtailment_start`. Two limitations should be read
+alongside everything below: the seasonal risk profile ($q_t$) is derived
+from a single pre-curtailment year (2025) at each facility, since that is
+the only full year available, so it reflects that year's particular
+timing as well as the species' underlying phenology; and the
+`r params$real_correction_factor`x rule is a project-level working
+assumption, not a fitted, search-effort-specific GenEst model, so the
+corrected counts below should be read as indicative, not exact.
 
-Where a forecast indicates a likely exceedance, the reduction required is
-calculated on the **remaining season specifically** -- fatalities already
-incurred cannot be recovered, so the relevant question is how much the
-remaining, still-avoidable mortality needs to fall by, not how the whole
-year compares to the annual figure. Turbine-level PCFM data make it
-possible to translate that reduction directly into a prescription: rank
-turbines by their expected remaining contribution to mortality, and
-select the smallest subset whose curtailment (at an assumed
-effectiveness) meets the required reduction. Because mortality is
-typically concentrated at a minority of turbines, this can meet a
-material reduction target by curtailing only a small share of the
-turbine fleet, rather than applying uniform curtailment fleet-wide.
-
-```{r fig-turbine-pareto}
-knitr::include_graphics(params$fig_turbine_pareto)
+```{r fig-real-dashboard}
+knitr::include_graphics(params$fig_real_dashboard)
 ```
 
-In the illustrative example above, at a synthetic mid-season checkpoint
-(week `r params$adaptive_checkpoint_week`), the forecast for
-`r params$adaptive_focus_project` implies a required reduction of
-approximately `r round(params$adaptive_required_abs_reduction)` fatalities
-in the remaining season, met by curtailing `r params$adaptive_n_curtailed`
-of `r params$adaptive_n_turbines` turbines
-(`r round(params$adaptive_pct_turbines_curtailed)`% of the fleet,
-accounting for `r round(params$adaptive_pct_mortality_captured)`% of the
-project's expected remaining mortality). These specific figures describe
-the synthetic demonstration only.
+```{r real-overage-table}
+knitr::kable(
+  params$real_overage_summary, digits = c(0, 0, 0, 0, 0),
+  col.names = c("Project", "Annual reference", "Raw carcasses (2026 to date)", "GenEst-corrected estimate", "% of annual reference"),
+  caption = paste0("2026 year-to-date V. murinus mortality (through ISO week ", params$real_checkpoint_week,
+                    ") against the annual PBR reference, both projects.")
+)
+```
 
-## What this needs to become operational
+Both projects' 2026 corrected estimate already exceeds the annual
+reference for the year to date, driven overwhelmingly by the weeks before
+curtailment began (ISO week `r params$real_curtailment_week`): the figure
+above shows both projects crossing into the RED zone during the
+pre-curtailment spring peak, well before the control chart's own upper
+limit would otherwise have been reached later in the season. This is the
+concrete version of the point made earlier in this note: an annual figure
+checked only at year-end cannot inform an in-season response, because by
+the time the exceedance is visible in an annual total, the season -- and
+the opportunity to act on it -- is largely over. It is also a genuine,
+not hypothetical, illustration of why the reference should not be
+interpreted as a hard pass/fail line: exceeding it does not by itself
+mean mitigation failed; the pattern of *when* mortality occurred relative
+to when curtailment started is what is actually informative here.
 
-This framework is not yet usable for real decisions. It requires, at
-minimum: the real weekly (ideally turbine-level) PCFM series in place of
-the synthetic generator used here; a seasonal risk profile ($q_t$ in
-project terminology) derived from that real series rather than assumed;
-and retrospective validation -- running the framework against historical
-weekly data to establish on which weeks it would have triggered, which
-turbines it would have selected, and what reduction it would have
-prescribed, before relying on it prospectively. Two further extensions
-are deliberately left for that stage rather than built on synthetic data
-now: incorporating energy-loss cost into the turbine allocation (so the
-prescription minimises energy foregone subject to meeting the required
-reduction, rather than ranking by expected mortality alone), and an
-escalate/relax hysteresis rule (requiring several consecutive
-low-mortality assessments, with adequate monitoring power to make a low
-count informative, before curtailment is relaxed -- avoiding a rule that
-escalates and relaxes on ordinary week-to-week variation).
+```{r real-yoy-table}
+knitr::kable(
+  params$real_yoy_summary, digits = c(0, 0, 0, 0),
+  col.names = c("Project", "2025 (same weeks)", "2026 (same weeks)", "% change"),
+  caption = paste0("Year-over-year comparison, GenEst-corrected V. murinus mortality through the same ISO week (",
+                    params$real_checkpoint_week, ") in each year.")
+)
+```
+
+Read alongside the year-to-date total, the year-over-year comparison
+gives a more differentiated picture. `r params$real_overage_summary$project[1]`'s
+corrected mortality through the same point in the season is
+`r round(abs(params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[1]]))`%
+`r if (params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[1]] < 0) "lower" else "higher"`
+than the equivalent period in 2025, consistent with curtailment having a
+material effect even though the annual reference was still exceeded.
+`r params$real_overage_summary$project[2]`'s corrected mortality through
+the same point is
+`r round(abs(params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[2]]))`%
+`r if (params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[2]] < 0) "lower" else "higher"`
+than in 2025 -- a signal in the opposite direction, and the more
+actionable one of the two: it suggests the current prescription at that
+project has not yet delivered a comparable improvement, which is exactly
+the kind of asymmetry between facilities that a shared annual figure,
+looked at only in aggregate, would not surface.
+
+The forward-looking forecast (projected year-end total under the current,
+post-curtailment regime continuing unchanged) is included for
+completeness, but should be treated cautiously here: it is estimated from
+only `r max(params$real_forecast_summary$post_curt_weeks_observed)` weeks
+of post-curtailment data so far, too short a window for the estimate of
+current-regime intensity to be precise -- the year-over-year comparison
+above, which uses no such extrapolation, is the more reliable signal at
+this stage. This forecast should firm up, and become genuinely decision-useful,
+after a few more weeks of post-curtailment PCFM accumulate.
+
+```{r fig-real-turbine-pareto}
+knitr::include_graphics(params$fig_real_turbine_pareto)
+```
+
+Turbine identifiers are anonymised (rank-based labels) consistent with
+the rest of this note. The distribution of pre-curtailment mortality
+across turbines is less concentrated than a simplified illustrative
+example might suggest: at `r params$real_focus_project`,
+`r params$real_n_turbines_top80` of `r params$real_n_turbines_focus`
+turbines (`r round(100 * params$real_n_turbines_top80 / params$real_n_turbines_focus)`%
+of the fleet) are needed to account for 80% of pre-curtailment mortality,
+rather than a small handful. This matters operationally: a strategy of
+curtailing only a small minority of turbines is less likely to capture
+most of the risk at this project than turbine-level PCFM data from a
+more spatially concentrated site would suggest, and broader-coverage
+curtailment, informed by this ranking, is likely to be necessary rather
+than optional.
+
+## What this shows, and what still needs to happen
+
+This first pass demonstrates that the adaptive-management mechanism
+proposed above runs end to end on real data, and already produces
+genuinely informative, facility-differentiated signals -- not merely a
+proof of concept. It also surfaces concrete next steps rather than
+resolving everything: a second pre-curtailment year (or more) would
+substantially firm up the seasonal risk profile now based on a single
+year at each facility; a longer post-curtailment record would sharpen the
+forward-looking forecast and make it decision-useful in its own right,
+not just a secondary check on the year-over-year comparison; and two
+extensions remain deliberately unimplemented until enough data exist to
+justify them rather than to demonstrate them in the abstract --
+incorporating energy-loss cost into any future turbine-level allocation
+exercise (so a prescription would minimise energy foregone subject to
+meeting a required reduction, rather than only ranking by expected
+mortality), and an escalate/relax hysteresis rule for adjusting
+curtailment down again (requiring several consecutive low-mortality
+assessments, with adequate monitoring power to make a low count
+informative, before relaxing -- avoiding a rule that escalates and
+relaxes on ordinary week-to-week variation).
