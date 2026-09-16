@@ -75,6 +75,21 @@ params:
   real_n_turbines_top80: !r NULL
   fig_real_dashboard: ""
   fig_real_turbine_pareto: ""
+  turbine_validation_correction_ratio_range: !r NULL
+  turbine_validation_correction_ratio_median: !r NULL
+  fig_turbine_validation: ""
+  turbine_validation_bash_window: ""
+  turbine_validation_dzh_window: ""
+  turbine_validation_bash_data_start: ""
+  turbine_validation_dzh_data_start: ""
+  turbine_validation_comparison: !r NULL
+  turbine_validation_overlap: !r NULL
+  turbine_validation_correction_check: !r NULL
+  curtailment_year_data_max_date: ""
+  curtailment_year_checkpoint_week: !r NULL
+  curtailment_year_reduction_so_far: !r NULL
+  curtailment_year_full_counterfactual: !r NULL
+  fig_curtailment_year: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -101,6 +116,8 @@ Document history / List of changes.
 | Version 7 | Promoted PVA-lite to its own top-level section (4), ahead of "Comparing approaches" (5, now containing the three-way comparison, the boundary analysis, the Nmin discussion and the capacity-vs-population-size synthesis as 5.1-5.4); "Integrated interpretation and implications" is now section 6 | 2026-09 | Paulo Cardoso |
 | Version 8 | Added section 7, "Towards operational adaptive mortality management" -- a proposed methodology for converting the annual PBR reference into a weekly PCFM-driven control chart and turbine-level curtailment allocation, illustrated on synthetic data pending the real weekly PCFM dataset | 2026-09 | Paulo Cardoso |
 | Version 9 | Section 7 now applies the adaptive-management mechanism to the real 2025-2026 PCFM carcass data (V. murinus, GenEst-corrected), in place of the earlier synthetic illustration: year-to-date mortality vs. the annual reference, a year-over-year comparison, a forward forecast, and pre-curtailment turbine-level concentration (turbine identifiers anonymised) | 2026-09 | Paulo Cardoso |
+| Version 10 | Corrected the imposed annual thresholds throughout from 144/120 to 112/88 bats/year, the values actually used operationally, confirmed against the Blanket Curtailment Plan technical note | 2026-09 | Paulo Cardoso |
+| Version 11 | Added two turbine- and season-level checks against real operational data: a retrospective validation of an independently-derived turbine selection against the actual, lender-agreed selection documented in the Blanket Curtailment Plan; and a full operational-year (May 2026-May 2027) comparison of actual, post-curtailment mortality against a no-curtailment counterfactual built from the prior year's pattern | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -991,6 +1008,151 @@ more spatially concentrated site would suggest, and broader-coverage
 curtailment, informed by this ranking, is likely to be necessary rather
 than optional.
 
+## Turbine-level retrospective validation
+
+The turbines actually curtailed since 5 May 2026 were not selected by this
+note's own methodology: they were selected under a separate, lender-agreed
+procedure, documented in the facilities' Blanket Curtailment Plan technical
+note (May 2026), that ranked turbines by GenEst-estimated *V. murinus*
+mortality over a defined baseline season -- April-August 2025 at
+`r params$real_overage_summary$project[1]`, March-August 2025 at
+`r params$real_overage_summary$project[2]` -- and selected turbines in
+ranked order up to 50% of that season's cumulative estimated mortality.
+This produced 17 selected turbines at
+`r params$real_overage_summary$project[1]` (of 68 assessed) and 7 at
+`r params$real_overage_summary$project[2]` (of 27 assessed).
+
+A natural question is how well a simpler, independent approach -- ranking
+turbines by raw carcass counts and this note's own
+`r params$real_correction_factor`x working rule, rather than a full
+search-effort-specific GenEst fit -- would have reproduced that selection,
+applied to the same baseline season and the same 50%-cumulative rule. Two
+data-coverage caveats apply to this replication and are not smoothed over:
+the raw carcass records available run from 22 April 2025 at
+`r params$real_overage_summary$project[1]` and from 9 April 2025 at
+`r params$real_overage_summary$project[2]`, so the replication is missing
+roughly the first three weeks of the nominal April window at the former,
+and essentially the entire nominal March window at the latter.
+
+```{r turbine-validation-overlap-table}
+knitr::kable(
+  params$turbine_validation_overlap,
+  digits = c(0, 0, 0, 0, 0, 2, 0, 0),
+  col.names = c("Project", "Officially selected", "Independently selected", "Selected by both",
+                "Union", "Jaccard index", "% of official selection recovered",
+                "% of official selection's mortality captured"),
+  caption = "Turbine-level retrospective validation: independent replication (raw carcasses, working correction rule) against the official, lender-agreed selection."
+)
+```
+
+```{r fig-turbine-validation}
+knitr::include_graphics(params$fig_turbine_validation)
+```
+
+The independent replication recovers most, but not all, of the officially
+selected turbines at both projects, and captures a larger share of their
+combined estimated mortality than of their count alone (turbines it
+misses tend to be lower-mortality ones near the 50% cutoff, where small
+count differences flip a turbine across the line). The remaining gap is
+consistent with two compounding factors, not a single cause: the shorter
+data window noted above, and the fact that the real, project-specific
+GenEst correction is not a flat multiplier -- the implied ratio between
+the official estimated mortality and the matching raw carcass count
+ranges from `r round(params$turbine_validation_correction_ratio_range[1], 1)`x
+to `r round(params$turbine_validation_correction_ratio_range[2], 1)`x
+across individual turbines (median
+`r round(params$turbine_validation_correction_ratio_median, 1)`x, close to
+but visibly more variable than this note's flat
+`r params$real_correction_factor`x working assumption), reflecting
+genuine differences in search effort, scavenging rates or carcass
+persistence between turbines that a project-level average cannot capture.
+Practically, this means a simple carcass-count ranking is a reasonable
+first approximation for identifying priority turbines between formal
+selection exercises, but should not substitute for a full, search-effort-
+specific GenEst analysis when a selection decision carries lender or
+financial consequences.
+
+## The May-August 2026 emergency response in a full operational year
+
+The analysis above (year-to-date mortality, the year-over-year comparison,
+the forward forecast) evaluates the current season against the annual
+reference and against 2025 at the same calendar point. A related but
+distinct question is how effective the curtailment response has been on
+its own terms, and how that effectiveness would play out across a full
+"operational year" running from the curtailment start date through the
+same date the following year -- explicitly framed, as this note's
+adaptive-management proposal is throughout, as evaluating what began as
+an emergency response so it can be refined into a longer-term strategy.
+
+The real PCFM records available for this analysis currently run only to
+`r params$curtailment_year_data_max_date` -- about
+`r params$curtailment_year_checkpoint_week` weeks into the curtailment
+response, not the full May-August window. What follows should be read as
+a first checkpoint on that basis, not a complete assessment of the
+emergency response; it is the first thing to refresh once later 2026
+records become available.
+
+```{r fig-curtailment-year}
+knitr::include_graphics(params$fig_curtailment_year)
+```
+
+```{r curtailment-year-reduction-table}
+knitr::kable(
+  params$curtailment_year_reduction_so_far %>%
+    dplyr::select(project, threshold, weeks_of_real_data, actual_corrected_total,
+                   counterfactual_corrected_total, avoided_fatalities, pct_reduction),
+  digits = c(0, 0, 0, 0, 0, 0, 0),
+  col.names = c("Project", "Annual reference", "Weeks of real 2026 data", "Actual (with curtailment)",
+                "Counterfactual (no curtailment, 2025 pattern)", "Avoided fatalities", "% reduction"),
+  caption = "Mortality avoided so far, over the operational weeks with real 2026 data available, against a no-curtailment counterfactual built from 2025's pattern shifted one year forward."
+)
+```
+
+The two projects diverge sharply over this short window.
+`r params$curtailment_year_reduction_so_far$project[1]` shows a large
+apparent reduction
+(`r round(params$curtailment_year_reduction_so_far$pct_reduction[1])`%,
+`r round(params$curtailment_year_reduction_so_far$avoided_fatalities[1])`
+fatalities avoided against the counterfactual), consistent with the
+year-over-year comparison above.
+`r params$curtailment_year_reduction_so_far$project[2]` shows no
+reduction over the same short window -- the actual corrected count is
+`r if (params$curtailment_year_reduction_so_far$pct_reduction[2] < 0) "higher than" else "lower than"`
+the counterfactual. Given the very small counts involved this early in
+the season (a handful of carcasses at either project), this divergence
+should not yet be read as a definitive difference in curtailment
+effectiveness between the two projects -- it is exactly the kind of
+early, noisy signal the year-over-year comparison above already flagged
+for `r params$curtailment_year_reduction_so_far$project[2]`, now visible
+again in a second, independently-constructed comparison.
+
+```{r curtailment-year-counterfactual-table}
+knitr::kable(
+  params$curtailment_year_full_counterfactual,
+  digits = c(0, 0, 0, 0),
+  col.names = c("Project", "Annual reference", "Full-year no-curtailment counterfactual", "% of annual reference"),
+  caption = "What the full operational year's mortality would total under 2025's pattern, had curtailment never been introduced."
+)
+```
+
+Extended across the full operational year, the no-curtailment
+counterfactual would reach
+`r round(params$curtailment_year_full_counterfactual$pct_of_threshold[1] / 100, 1)`x
+the annual reference at
+`r params$curtailment_year_full_counterfactual$project[1]` and
+`r round(params$curtailment_year_full_counterfactual$pct_of_threshold[2] / 100, 1)`x
+at `r params$curtailment_year_full_counterfactual$project[2]` -- consistent
+with, and independently constructed from, the pre-curtailment overage
+already documented in the Blanket Curtailment Plan technical note itself.
+This framing also makes explicit a residual-risk point noted earlier in
+this note: the current curtailment window does not span the full
+operational year, so calendar months outside it remain at, or close to,
+counterfactual-level risk under the plan as currently scoped -- the
+concrete reason the next iteration of this strategy should extend
+monitoring and, where justified by the data, curtailment coverage beyond
+the current window, rather than treat the present emergency measure as a
+finished design.
+
 ## What this shows, and what still needs to happen
 
 This first pass demonstrates that the adaptive-management mechanism
@@ -1012,3 +1174,17 @@ curtailment down again (requiring several consecutive low-mortality
 assessments, with adequate monitoring power to make a low count
 informative, before relaxing -- avoiding a rule that escalates and
 relaxes on ordinary week-to-week variation).
+
+The two checks above add a further, complementary layer: the turbine
+validation shows that an independent, project-level replication of the
+real turbine selection is directionally sound but not a substitute for
+the real, search-effort-specific analysis behind a lender-facing
+decision; and the operational-year comparison shows that even a partial-
+season read of the emergency response already distinguishes a project
+where curtailment appears to be working from one where it does not yet,
+on this evidence, show a comparable effect -- while also making explicit
+that the current curtailment window leaves part of the operational year
+uncovered. Both checks should be re-run as later 2026 records accumulate,
+particularly once real data extend through the full May-August response
+window and beyond, before either is treated as a final verdict on the
+strategy's effectiveness.
