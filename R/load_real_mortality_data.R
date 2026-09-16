@@ -9,7 +9,7 @@
 ## Project_Name in the raw data is the real facility name ("Bash",
 ## "Djangeldy"); mapped here to the same facility_labels/threshold order
 ## already established in inputs/pbrSettings_BSH_DGY.R (Bash = BSH =
-## 144 bats/yr = "Project 1"; Djangeldy = DGY = 120 bats/yr = "Project 2")
+## 112 bats/yr = "Project 1"; Djangeldy = DGY = 88 bats/yr = "Project 2")
 ## so nothing downstream of this file, including the report, ever sees the
 ## real names -- consistent with the anonymisation already done for the
 ## workshop presentation.
