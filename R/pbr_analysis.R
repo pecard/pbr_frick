@@ -237,8 +237,28 @@ run_pbr_analysis <- function(fig_dir) {
   ##          R/plotly_screenshot.R) if available. Avoids 'kaleido',
   ##          fragile to install across platforms; the 2D faceted version
   ##          above always covers the same content regardless.
+  ##
+  ## Installs any of the four packages this needs that aren't already
+  ## present, once, automatically -- rather than requiring a manual
+  ## install.packages() step before the pipeline can produce this figure.
+  ## Safe to leave in: requireNamespace() is near-instant when a package is
+  ## already installed, so this costs nothing on every subsequent run.
   fig_response_surfaces_3d <- NULL
   fig_response_surfaces_3d_html <- NULL
+  required_3d_pkgs <- c("plotly", "RColorBrewer", "htmlwidgets", "webshot2")
+  missing_3d_pkgs <- required_3d_pkgs[!vapply(required_3d_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing_3d_pkgs) > 0) {
+    message("Installing missing package(s) needed for the 3D response-surface figure: ",
+            paste(missing_3d_pkgs, collapse = ", "), "...")
+    tryCatch(
+      install.packages(missing_3d_pkgs),
+      error = function(e) message(
+        "Could not install ", paste(missing_3d_pkgs, collapse = ", "), " automatically (",
+        conditionMessage(e), "). Install manually if the 3D figure is needed; the 2D faceted ",
+        "version above always covers the same content regardless."
+      )
+    )
+  }
   has_3d_deps <- requireNamespace("plotly", quietly = TRUE) &&
     requireNamespace("RColorBrewer", quietly = TRUE) &&
     requireNamespace("htmlwidgets", quietly = TRUE)
