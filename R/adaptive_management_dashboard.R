@@ -168,3 +168,149 @@ cat(
   "raise cut-in speed by X m/s' -- not yet possible with only on/off data.\n",
   sep = ""
 )
+
+##
+## ---- PART 2: MRI / EOY forecast / exceedance probability / turbine ------
+##      allocation (Paulo, 2026-09) -- upgrades the tier-based control
+##      chart above with the richer layer he proposed: a Mortality
+##      Reference Index (observed / expected-to-date, not just a raw
+##      count), a stochastic end-of-year forecast under the CURRENT
+##      regime (not the annual threshold's own pace), the resulting
+##      exceedance probability, the reduction still required in the
+##      remaining season specifically (not the whole year -- fatalities
+##      already incurred cannot be recovered), and a turbine-level
+##      Pareto/allocation step translating that reduction into which
+##      turbines would need tighter curtailment.
+##
+## STILL ILLUSTRATIVE: uses the same synthetic weekly series as Part 1,
+## and a synthetic turbine-level fatality distribution loosely following
+## the "mortality is spatially concentrated" pattern. The forecast
+## uncertainty (M_50/M_90 for the SEASON REMAINING) is genuinely computed
+## by forward simulation, not fabricated -- but the cumulative-to-date
+## estimate itself is still treated as a fixed point estimate here,
+## because no real PCFM/GenEst detection-probability uncertainty exists
+## in this session to draw from. Swap in real weekly (ideally per-turbine)
+## PCFM output and this becomes a real tool, not a demonstration.
+##
+
+# ---- MRI: observed-to-date vs. expected-to-date under the annual reference
+mri_t <- dashboard_data %>%
+  mutate(MRI = observed_cum / expected_cum) %>%
+  select(project, threshold, week, observed_cum, expected_cum, MRI)
+
+# ---- Stochastic end-of-year forecast under the CURRENT regime -------------
+# Estimates the recent realised rate relative to what the threshold's own
+# pace would imply over a lookback window, then projects the remaining
+# season forward stochastically at that same relative intensity -- i.e.
+# "if the current mitigation regime continues unchanged, where do we
+# finish, and how uncertain is that?" This is a forecast under status quo,
+# not a claim about the true underlying mortality process.
+project_eoy <- function(observed_weekly_vec, current_week, seasonal_weight, annual_threshold,
+                         lookback = 6, n_sim = 4000) {
+  expected_weekly <- annual_threshold * seasonal_weight
+  recent_weeks <- max(1, current_week - lookback + 1):current_week
+  recent_expected <- sum(expected_weekly[recent_weeks])
+  recent_observed <- sum(observed_weekly_vec[recent_weeks])
+  intensity <- if (recent_expected > 0.05) recent_observed / recent_expected else 1
+  future_weeks <- seq(current_week + 1, length(seasonal_weight))
+  future_expected <- pmax(expected_weekly[future_weeks] * intensity, 0)
+  sims <- if (length(future_weeks) > 0) {
+    replicate(n_sim, sum(rpois(length(future_weeks), future_expected)))
+  } else rep(0, n_sim)
+  m_t <- sum(observed_weekly_vec[1:current_week])
+  eoy_dist <- m_t + sims
+  tibble::tibble(
+    m_t = m_t, regime_intensity = intensity,
+    eoy_median = median(eoy_dist), eoy_p90 = quantile(eoy_dist, 0.90, names = FALSE),
+    p_exceed = mean(eoy_dist > annual_threshold),
+    remaining_forecast_median = median(sims), remaining_forecast_p90 = quantile(sims, 0.90, names = FALSE)
+  )
+}
+
+# ---- Required reduction in the REMAINING season, not the whole year -------
+required_reduction <- function(m_t, threshold, remaining_forecast) {
+  remaining_budget <- max(0, threshold - m_t)
+  pct_reduction_needed <- if (remaining_forecast > 0) max(0, 1 - remaining_budget / remaining_forecast) else 0
+  tibble::tibble(remaining_budget = remaining_budget, remaining_forecast = remaining_forecast,
+                 required_abs_reduction = max(0, remaining_forecast - remaining_budget),
+                 pct_reduction_needed = pct_reduction_needed)
+}
+
+set.seed(3)
+checkpoint_week <- 22  # illustrative mid-spring checkpoint, well before curtailment starts in
+                        # the synthetic series -- chosen to demonstrate the case that matters
+                        # (catching an off-track trajectory WHILE there is still season left to
+                        # act in), not the already-controlled end-of-season state
+
+forecast_summary <- lapply(seq_len(nrow(project_thresholds)), function(i) {
+  proj <- project_thresholds$project[i]; thr <- project_thresholds$threshold[i]
+  obs <- dashboard_data %>% filter(project == proj) %>% arrange(week) %>% pull(observed_weekly)
+  eoy <- project_eoy(obs, checkpoint_week, seasonal_weight, thr)
+  red <- required_reduction(eoy$m_t, thr, eoy$remaining_forecast_median)
+  bind_cols(tibble::tibble(project = proj, threshold = thr, week = checkpoint_week), eoy, red)
+}) %>% bind_rows()
+
+cat("\n=== Six-number dashboard header, illustrative checkpoint at week", checkpoint_week, "===\n")
+print(as.data.frame(forecast_summary %>%
+  select(project, threshold, m_t, eoy_median, eoy_p90, p_exceed, required_abs_reduction, pct_reduction_needed)))
+
+# ---- Turbine-level Pareto + allocation (Project 1 only, illustrative) -----
+n_turbines <- 25
+turbine_weights <- sort(rgamma(n_turbines, shape = 0.6, rate = 1), decreasing = TRUE)
+remaining_forecast_p1 <- forecast_summary$remaining_forecast_median[forecast_summary$project == "Project 1"]
+turbines <- tibble::tibble(
+  turbine_id = sprintf("WTG_%02d", seq_len(n_turbines)),
+  expected_remaining = turbine_weights / sum(turbine_weights) * remaining_forecast_p1
+) %>%
+  arrange(desc(expected_remaining)) %>%
+  mutate(rank = row_number(), cum_expected = cumsum(expected_remaining),
+         cum_pct = cum_expected / sum(expected_remaining))
+
+allocate_curtailment <- function(turbines, required_abs_reduction, effectiveness = 0.70) {
+  turbines %>%
+    mutate(
+      avoided_if_curtailed = expected_remaining * effectiveness,
+      cum_avoided = cumsum(avoided_if_curtailed),
+      curtail = cum_avoided < required_abs_reduction | lag(cum_avoided, default = 0) < required_abs_reduction
+    )
+}
+
+required_abs_p1 <- forecast_summary$required_abs_reduction[forecast_summary$project == "Project 1"]
+turbines_allocated <- allocate_curtailment(turbines, required_abs_p1)
+n_curtailed <- sum(turbines_allocated$curtail)
+
+cat(sprintf(
+  "\nProject 1: required reduction in remaining-season mortality = %.1f fatalities.\n",
+  required_abs_p1
+))
+cat(sprintf(
+  "Illustrative allocation (70%% assumed curtailment effectiveness): curtailing the top %d of %d turbines\n",
+  n_curtailed, n_turbines
+))
+cat(sprintf("(%.0f%% of turbines, accounting for %.0f%% of the project's remaining expected mortality) meets it.\n",
+            100 * n_curtailed / n_turbines, 100 * turbines_allocated$cum_pct[n_curtailed]))
+
+fig_turbine_pareto <- file.path(fig_dir, "turbine_pareto_allocation.png")
+ggsave(fig_turbine_pareto, width = 9, height = 5.5, dpi = 150, plot = {
+  ggplot(turbines_allocated, aes(x = reorder(turbine_id, -expected_remaining))) +
+    geom_col(aes(y = expected_remaining, fill = curtail)) +
+    geom_line(aes(y = cum_pct * max(expected_remaining), group = 1), colour = "grey20", linewidth = 0.6) +
+    geom_point(aes(y = cum_pct * max(expected_remaining)), colour = "grey20", size = 1.2) +
+    scale_y_continuous(
+      name = "Expected remaining fatalities (turbine)",
+      sec.axis = sec_axis(~ . / max(turbines_allocated$expected_remaining), name = "Cumulative % of remaining mortality", labels = scales::percent)
+    ) +
+    scale_fill_manual(name = "Curtailment\nprescribed", values = c(`TRUE` = "firebrick", `FALSE` = "grey70"),
+                       labels = c(`TRUE` = "Yes", `FALSE` = "No")) +
+    labs(
+      x = "Turbine (ranked by expected remaining mortality)",
+      title = "Turbine-level allocation to meet the required reduction (Project 1, illustrative)",
+      subtitle = paste0(
+        "Bars: expected remaining fatalities per turbine; line: cumulative %. Red bars: turbines selected to meet the ",
+        round(required_abs_p1, 0), "-fatality reduction needed\n(70% assumed curtailment effectiveness) -- synthetic data, demonstrates the allocation logic only."
+      )
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 7), plot.subtitle = element_text(size = 8.5))
+})
+cat("\nWrote", fig_turbine_pareto, "\n")
