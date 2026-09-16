@@ -7,13 +7,26 @@ population), not merely physiological sexual maturity. The two can differ:
 an animal can be physiologically capable of mating well before it
 successfully raises young to independence.
 
+**Access limitation (2026-09):** as with `references/leslie_matrix_parametrisation.md`,
+outbound access in this session could only reach search-engine result
+snippets (`WebSearch`); `WebFetch` remained blocked for `ratpenats.org` and
+its sister domain `batmonitoring.org` on every attempt, including a
+re-check on 2026-09-16. The Ratpenats claim below ("many females mate in
+their first autumn") was cross-checked on that date across three
+independent `WebSearch` queries, including one scoped to the original
+Catalan-language version of the same species page
+(ratpenats.org/especies/vespertilio-murinus, vs. the English
+ratpenats.org/en/species/vespertilio-murinus/ cited in the table) -- all
+three returned the identical sentence verbatim, the strongest
+corroboration achievable without direct page access.
+
 ## Sources reviewed
 
 | Source | Species / group | Relevant information | Implication for alpha |
 |---|---|---|---|
 | [AnAge database](https://genomics.senescence.info/species/entry.php?species=Vespertilio_murinus) | *Vespertilio murinus* | Female and male sexual maturity listed at **730 days** (~2 years); litter size 2; one litter per year. | Supports alpha ~= 2 as a defensible value. |
 | Haensel 2010, *Nyctalus* | *Vespertilio murinus* | Reports that some females raise young already in their first year of life; the author's own data suggest most or all females may reach sexual maturity in the year of birth and raise young as one-year-olds, though this is stated cautiously. | Suggests alpha = 1-2 may be plausible; alpha = 2 is not an optimistic assumption. |
-| [Ratpenats species account](https://www.ratpenats.org/en/species/vespertilio-murinus/) | *Vespertilio murinus* | States that many females mate in their first autumn. | Supports early sexual maturity, but mating is not the same as confirmed breeding. |
+| [Ratpenats species account](https://www.ratpenats.org/en/species/vespertilio-murinus/) (original Catalan version: [ratpenats.org/especies/vespertilio-murinus](https://www.ratpenats.org/especies/vespertilio-murinus)) | *Vespertilio murinus* | States that many females mate in their first autumn. | Supports early sexual maturity, but mating is not the same as confirmed breeding. |
 | Racey & Entwistle synthesis, cited in Frick et al.'s own discussion ([related: Life-history and Reproductive Strategies of Bats](https://www.researchgate.net/publication/279523560_Life-history_and_Reproductive_Strategies_of_Bats)) | Bats broadly | The general view for most bats is that age at first breeding is around 1 year, though first-year breeding probability can be lower; Frick et al. use alpha = 1.5 as a general benchmark and suggest alpha = 2 for some families (e.g. Pteropodidae). | Supports alpha = 1.5-2 as plausible for many bat species. |
 | [Cryan et al. 2012](https://tethys.pnnl.gov/sites/default/files/publications/Cryan-et-al-2012.pdf) | Migratory tree bats killed at wind turbines | Found ovarian development indicating sexual maturity even in first-year females for several migratory tree-roosting species. | Useful analogue: some wind-vulnerable migratory bats mature very early. |
 | [Komar et al. 2020](https://journals.biologists.com/jeb/article/223/8/jeb214825/223805/Food-restriction-delays-seasonal-sexual-maturation) | Male *Vespertilio murinus* | Food restriction delayed seasonal sexual maturation in males; well-fed males matured earlier. | Shows maturation timing is condition-dependent; male data are less directly useful for PBR (which uses female recruitment). |
