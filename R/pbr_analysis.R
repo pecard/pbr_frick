@@ -725,7 +725,7 @@ run_pbr_analysis <- function(fig_dir) {
       annotate(
         "label", x = nmin_assumed, y = 1.235,
         label = paste0("Nmin = ", format(nmin_assumed, big.mark = ","), "\n(reverse-engineered scenario,\nnot an abundance estimate)"),
-        colour = "grey20", fill = "white", alpha = 0.85, size = 2.6, hjust = -0.03, vjust = 1, label.size = 0
+        colour = "grey20", fill = "white", alpha = 0.85, size = 2.6, hjust = -0.03, vjust = 1
       ) +
       scale_fill_viridis_c(option = "C", name = "PBR\n(bats/yr)") +
       scale_colour_manual(name = "PBR contour\n(bats/yr)", values = nmin_lambda_break_colours) +
