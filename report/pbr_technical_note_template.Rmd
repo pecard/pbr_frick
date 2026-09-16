@@ -86,6 +86,7 @@ Document history / List of changes.
 | Version 4 | Added an inverse demographic boundary analysis on the validated Leslie matrix, and a discussion of Nmin as a source of uncertainty, including Frick et al.'s own definition of local population size and its stated limitation for cumulative impacts across nearby facilities | 2026-09 | Paulo Cardoso |
 | Version 5 | Replaced the kaleido-based 3D response-surface export with a fixed-camera static image; anonymised facility names to Project 1/Project 2 for external presentation; added a direct quantitative comparison of PBR's sensitivity to Nmin versus lambda_max, and a synthesising Nmin x lambda_max surface figure | 2026-09 | Paulo Cardoso |
 | Version 6 | Restructured section hierarchy (Leslie matrix cross-check and the closing interpretation promoted to top-level sections; PVA-lite, the three-way comparison, the boundary analysis and the Nmin discussion grouped under a new "Comparing approaches" section); improved legibility of four figures; rewrote the closing section as "Integrated interpretation and implications", synthesising the full body of evidence rather than the PBR/Niel-Lebreton sensitivity analysis alone | 2026-09 | Paulo Cardoso |
+| Version 7 | Promoted PVA-lite to its own top-level section (4), ahead of "Comparing approaches" (5, now containing the three-way comparison, the boundary analysis, the Nmin discussion and the capacity-vs-population-size synthesis as 5.1-5.4); "Integrated interpretation and implications" is now section 6 | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -484,9 +485,7 @@ species-specific demographic model does not support the imposed
 thresholds' implicit growth-rate assumption except at the most optimistic
 end of the plausible adult-survival range.
 
-# Comparing approaches
-
-## PVA-lite: 25-year stochastic projection
+# PVA-lite: 25-year stochastic projection
 
 The Leslie matrix above is deterministic: it describes the average
 trajectory but not the year-to-year variability real populations
@@ -535,6 +534,8 @@ to
 `r round(min(params$pva_risk_summary$p_decline[params$pva_risk_summary$scenario != "No additional mortality"]), 0)`-`r round(max(params$pva_risk_summary$p_decline[params$pva_risk_summary$scenario != "No additional mortality"]), 0)`%
 -- particularly at `r params$thresholds$facility[which.max(params$thresholds$threshold)]`'s higher threshold, and with a small but non-zero
 probability of quasi-extinction there.
+
+# Comparing approaches
 
 ## Comparing the three approaches
 
