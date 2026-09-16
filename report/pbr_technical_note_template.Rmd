@@ -424,7 +424,7 @@ reinforces, rather than weakens, the conclusion below.
 knitr::include_graphics(params$fig_pbr_density)
 ```
 
-## Leslie matrix cross-check
+# Leslie matrix cross-check
 
 The PBR/Niel-Lebreton approach is one specific method among several used to
 estimate a population's sustainable growth rate: simpler methods (e.g. a
@@ -482,6 +482,8 @@ of the PBR/Niel-Lebreton analysis above, this validated, published,
 species-specific demographic model does not support the imposed
 thresholds' implicit growth-rate assumption except at the most optimistic
 end of the plausible adult-survival range.
+
+# Comparing approaches
 
 ## PVA-lite: 25-year stochastic projection
 
@@ -738,7 +740,7 @@ the definition and estimation of the population exposed to project
 mortality than on further narrowing $\lambda_{max}$ within the range
 considered in this note.
 
-## Preliminary interpretation and implications
+# Preliminary interpretation and implications
 
 Under a defensible, non-optimistic parametrisation -- recovery factor
 corrected to the species' actual (non-threatened) status, and demographic
@@ -766,12 +768,9 @@ additionally consider:
 - whether nearby facilities may draw on a shared regional or migratory population, given the PBR framework's own acknowledged limitation for cumulative, range-wide impacts;
 - and the broader adaptive-management context in which the threshold is applied.
 
-As shown above, PBR uncertainty is better represented as two distinct
-components -- demographic capacity ($\lambda_{max}$) and population size
-($N_{min}$) -- than as a single range around one number, given how
-differently constrained each is in this analysis. Presenting the
-threshold this way provides a more robust and defensible basis for
-adaptive management decisions where demographic parameters, local
-population structure, and abundance estimates remain incompletely
-resolved -- as is the case for the `r params$species_common_name` in this
-region.
+The distinction between demographic capacity and population size drawn in
+the preceding section should guide how this threshold is periodically
+reviewed: revisiting $N_{min}$ as better abundance, movement and
+connectivity evidence becomes available is likely to matter more than
+further narrowing $\lambda_{max}$, for the `r params$species_common_name`
+in this region.

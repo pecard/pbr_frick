@@ -207,12 +207,12 @@ run_pbr_analysis <- function(fig_dir) {
   )
 
   fig_response_surfaces <- file.path(fig_dir, "response_surfaces.png")
-  ggsave(fig_response_surfaces, width = 10, height = 3.6, dpi = 150, plot = {
+  ggsave(fig_response_surfaces, width = 7.5, height = 7, dpi = 150, plot = {
     ggplot(surface_grid, aes(x = s, y = alpha)) +
       geom_raster(aes(fill = PBR), interpolate = TRUE) +
       geom_contour(aes(z = PBR, colour = after_stat(factor(level))),
                    breaks = pbr_thresholds$threshold, linewidth = 0.4) +
-      facet_wrap(~Fr_label, nrow = 1) +
+      facet_wrap(~Fr_label, nrow = 2, ncol = 2) +
       scale_fill_viridis_c(name = "PBR\n(bats/yr)", option = "C") +
       scale_colour_manual(name = "Imposed threshold", values = threshold_colours, labels = threshold_display_labels) +
       labs(
@@ -560,10 +560,10 @@ run_pbr_analysis <- function(fig_dir) {
         x = "Year", y = "Population (both sexes)",
         title = paste0(pva_n_years, "-year stochastic projection, validated V. murinus demographic model"),
         subtitle = paste0("N0 = ", 2 * n0_female, " (Nmin per facility); shaded: 50%/90% of ",
-                           pva_n_reps, " trajectories; dotted: N0")
+                           pva_n_reps, " trajectories;\ndotted line: N0")
       ) +
       theme_minimal() +
-      theme(strip.text = element_text(face = "bold"), plot.subtitle = element_text(size = 8))
+      theme(strip.text = element_text(face = "bold"), plot.subtitle = element_text(size = 11))
   })
 
   ## ---- 5d. Three-way comparison summary --------------------------------
@@ -669,25 +669,29 @@ run_pbr_analysis <- function(fig_dir) {
                                              scenario = "Baseline S_juv & breeding fraction")
 
   fig_leslie_boundary_surface <- file.path(fig_dir, "leslie_boundary_surface.png")
-  ggsave(fig_leslie_boundary_surface, width = 10, height = 4.8, dpi = 150, plot = {
+  ggsave(fig_leslie_boundary_surface, width = 10, height = 5.2, dpi = 150, plot = {
     ggplot(surface_grid_boundary, aes(x = s_adult, y = litter, z = lambda)) +
       geom_raster(aes(fill = lambda)) +
       geom_contour(breaks = lambda_max_benchmarks, aes(colour = after_stat(factor(level))), linewidth = 0.8) +
       scale_colour_manual(name = "lambda contour", values = benchmark_colours) +
       scale_fill_viridis_c(option = "D", name = "lambda") +
-      geom_point(data = boundary_baseline_point, aes(x = s_adult, y = litter), inherit.aes = FALSE,
-                 colour = "red", size = 2.5, shape = 17) +
+      geom_point(
+        data = boundary_baseline_point,
+        aes(x = s_adult, y = litter, shape = sprintf("Empirical baseline\n(Safi 2006: S_adult=%s, litter=%s)", leslie_s_adult_f, leslie_litter)),
+        inherit.aes = FALSE, colour = "red", size = 2.8
+      ) +
+      scale_shape_manual(name = NULL, values = 17) +
       facet_wrap(~scenario) +
       labs(
         x = "Adult female survival", y = "Litter size",
         title = "Where would adult survival and litter size need to sit to reach the PBR benchmarks?",
         subtitle = paste0(
-          "Red triangle: Safi's empirical baseline (S_adult=", leslie_s_adult_f, ", litter=", leslie_litter,
-          "); contours: PBR benchmarks ", paste(lambda_max_benchmarks, collapse = " (cyan) / "), " (green)"
+          "Contours: PBR benchmarks ", paste(lambda_max_benchmarks, collapse = " (cyan) / "), " (green)\n",
+          "S_juv and breeding fraction held at Safi's baseline in the left panel, at their plausible upper bound in the right panel"
         )
       ) +
       theme_minimal() +
-      theme(plot.subtitle = element_text(size = 8), strip.text = element_text(face = "bold"))
+      theme(plot.subtitle = element_text(size = 11), strip.text = element_text(face = "bold"))
   })
 
   ## ---- 5f. Relative sensitivity of PBR to Nmin vs lambda_max --------------
@@ -753,13 +757,14 @@ run_pbr_analysis <- function(fig_dir) {
         x = "Nmin", y = "lambda_max",
         title = "PBR as a function of Nmin and lambda_max",
         subtitle = paste0(
-          "Fr = ", fr_corrected, " throughout. PBR moves the same amount for a given % change in Nmin as for the ",
-          "same % change in (lambda_max - 1) -- but Nmin's plausible range is far less constrained."
+          "Fr = ", fr_corrected, " throughout. Nmin and (lambda_max - 1) move PBR by the same\n",
+          "percentage for the same percentage change -- but Nmin's plausible range\n",
+          "here is far less constrained."
         )
       ) +
       scale_x_continuous(labels = scales::comma) +
       theme_minimal() +
-      theme(plot.subtitle = element_text(size = 7.5))
+      theme(plot.subtitle = element_text(size = 10.5))
   })
 
   ## ---- 5. Assemble report params -----------------------------------------
