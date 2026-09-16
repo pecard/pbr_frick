@@ -19,6 +19,7 @@ suppressPackageStartupMessages({
 })
 
 source("R/pbr_functions.R")
+source("R/plotly_screenshot.R")
 
 run_pbr_analysis <- function(fig_dir) {
 
@@ -224,14 +225,20 @@ run_pbr_analysis <- function(fig_dir) {
   })
 
   ## ---- 3b. Response surfaces, 3D (static print, matching the original ----
-  ##          report's plot.ly figure) -- optional: needs the 'plotly' and
-  ##          'kaleido' packages (install.packages(c("plotly", "kaleido")))
-  ##          to export a static image; skipped with a message otherwise,
-  ##          the 2D faceted version above always covers the same content.
+  ##          report's plot.ly figure) -- a self-contained HTML widget with
+  ##          a FIXED camera (so the static export is reproducible across
+  ##          runs/machines -- same convention as the 3D turbine coverage
+  ##          maps in idf_bsh_dgy/R/coverage_3d_topography.R), screenshotted
+  ##          via webshot2 (headless Chrome/Edge, R/plotly_screenshot.R).
+  ##          Avoids 'kaleido', fragile to install across platforms;
+  ##          skipped with a message if webshot2/a browser aren't
+  ##          available, the 2D faceted version above always covers the
+  ##          same content.
   fig_response_surfaces_3d <- NULL
   has_3d_deps <- requireNamespace("plotly", quietly = TRUE) &&
     requireNamespace("RColorBrewer", quietly = TRUE) &&
-    requireNamespace("kaleido", quietly = TRUE)
+    requireNamespace("htmlwidgets", quietly = TRUE) &&
+    requireNamespace("webshot2", quietly = TRUE)
 
   if (has_3d_deps) {
     hues <- c("Blues", "Greens", "Oranges", "Purples")  # one per Fr scenario, low->high
@@ -264,27 +271,32 @@ run_pbr_analysis <- function(fig_dir) {
         scene = list(
           xaxis = list(title = "Age at first breeding (alpha)"),
           yaxis = list(title = "Adult survival (s)"),
-          zaxis = list(title = "PBR (bats/year)")
+          zaxis = list(title = "PBR (bats/year)"),
+          aspectmode = "manual",
+          aspectratio = list(x = 1, y = 1, z = 0.8),
+          # Fixed viewpoint (not plotly's own default, which is not
+          # guaranteed stable across versions/machines) -- same idea as
+          # .camera_from_bearing() for the 3D turbine coverage maps, though
+          # this scene has no compass bearing to anchor to, so the eye
+          # position is just a fixed, deliberately chosen 3/4 elevated view
+          # showing all three axes clearly.
+          camera = list(
+            eye = list(x = 1.35, y = -1.35, z = 0.7),
+            center = list(x = 0, y = 0, z = -0.15),
+            up = list(x = 0, y = 0, z = 1)
+          )
         ),
-        legend = list(title = list(text = "Recovery factor scenario"))
+        legend = list(title = list(text = "Recovery factor scenario"), x = 0.82, y = 0.85),
+        margin = list(l = 0, r = 0, b = 0, t = 40)
       )
 
     fig_response_surfaces_3d_path <- file.path(fig_dir, "response_surfaces_3d.png")
-    export_ok <- tryCatch({
-      plotly::save_image(fig3d, file = fig_response_surfaces_3d_path, width = 900, height = 700)
-      TRUE
-    }, error = function(e) {
-      message(
-        "Could not export the 3D response-surface figure as a static image (",
-        conditionMessage(e), "). The report still includes the 2D faceted version."
-      )
-      FALSE
-    })
+    export_ok <- !is.null(render_plotly_screenshot(fig3d, fig_response_surfaces_3d_path, width = 1000, height = 750))
     if (export_ok) fig_response_surfaces_3d <- fig_response_surfaces_3d_path
   } else {
     message(
-      "Packages 'plotly'/'RColorBrewer'/'kaleido' not all installed -- skipping the static ",
-      "3D response-surface print (install.packages(c(\"plotly\", \"RColorBrewer\", \"kaleido\")) to include it). ",
+      "Packages 'plotly'/'RColorBrewer'/'htmlwidgets'/'webshot2' not all installed -- skipping the static ",
+      "3D response-surface print (install.packages(c(\"plotly\", \"RColorBrewer\", \"htmlwidgets\", \"webshot2\")) to include it). ",
       "The report still includes the 2D faceted version."
     )
   }

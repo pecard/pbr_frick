@@ -9,7 +9,13 @@
 ## touching the analysis or report code.
 ##
 
-project_ref          <- "BSH & DGY"
+## Facility labels used throughout the analysis, report and figures -- the
+## single place to change if facility names need to be anonymised (e.g. for
+## an external workshop presentation) or otherwise relabelled. Order must
+## stay aligned with pbr_thresholds$threshold below (first label = first
+## threshold, 144; second = 120).
+facility_labels       <- c("Project 1", "Project 2")
+project_ref           <- paste(facility_labels, collapse = " & ")
 species_name          <- "Vespertilio murinus"
 species_common_name   <- "Parti-coloured bat"
 
@@ -17,7 +23,7 @@ species_common_name   <- "Parti-coloured bat"
 ## (bats/year). No documented derivation is available for these values;
 ## the analysis works backwards from them (see R/pbr_analysis.R).
 pbr_thresholds <- tibble::tibble(
-  facility  = c("BSH", "DGY"),
+  facility  = facility_labels,
   threshold = c(144, 120)
 )
 
