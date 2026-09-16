@@ -30,6 +30,7 @@ params:
   fig_elasticity_alpha: ""
   fig_response_surfaces: ""
   fig_response_surfaces_3d: !r NULL
+  fig_response_surfaces_3d_html: !r NULL
   fig_pbr_density: ""
   n_sim: !r NULL
   pbr_quantiles: !r NULL
@@ -60,6 +61,8 @@ params:
   leslie_boundary_range_p_breed: !r NULL
   leslie_boundary_range_litter: !r NULL
   fig_leslie_boundary_surface: ""
+  nmin_vs_lambda_sensitivity: !r NULL
+  fig_nmin_lambda_surface: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -81,6 +84,7 @@ Document history / List of changes.
 | Version 2 | Corrected recovery factor (Fr); reverse-engineered and plausibility-checked the local population estimate (Nmin); updated age-at-first-breeding range from a literature review; rebuilt the sensitivity, response-surface and Monte Carlo analyses on consistent, reproducible parameter ranges | 2026-09 | Paulo Cardoso |
 | Version 3 | Added a Leslie-matrix cross-check (validated against the published Dekker & Limpens 2024 model) and a 25-year stochastic PVA-lite projection, with a summary comparison against the PBR/Niel-Lebreton approach | 2026-09 | Paulo Cardoso |
 | Version 4 | Added an inverse demographic boundary analysis on the validated Leslie matrix, and a discussion of Nmin as a source of uncertainty, including Frick et al.'s own definition of local population size and its stated limitation for cumulative impacts across nearby facilities | 2026-09 | Paulo Cardoso |
+| Version 5 | Replaced the kaleido-based 3D response-surface export with a fixed-camera static image; anonymised facility names to Project 1/Project 2 for external presentation; added a direct quantitative comparison of PBR's sensitivity to Nmin versus lambda_max, and a synthesising Nmin x lambda_max surface figure | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -268,12 +272,18 @@ knitr::kable(params$backsolve_grid, digits = c(0, 0, 2, 0),
                                ") and the paper's fixed lambda_max benchmarks."))
 ```
 
-This is the most parsimonious explanation available for how the imposed
-thresholds were obtained: local populations of
-~`r format(params$nmin_assumed, big.mark = ",")` individuals near each
-facility, combined with the paper's $\lambda_{max}$ benchmarks applied per
-facility. `r params$project_ref` are approximately
-`r params$interproject_distance_km` km apart, so this is better read as two
+Under $F_r=$ `r params$fr_original` (`r params$iucn_status_original_guess`)
+and the paper's fixed $\lambda_{max}$ benchmarks applied per facility, a
+local population of ~`r format(params$nmin_assumed, big.mark = ",")`
+individuals near each facility reproduces the imposed thresholds exactly.
+This shows that ~`r format(params$nmin_assumed, big.mark = ",")` is *one*
+parameter combination consistent with the imposed thresholds under those
+assumptions -- it is not evidence that a population of that size was
+itself the value used when the thresholds were originally derived, since
+the parameters actually used for that derivation are not documented and
+were not provided along with the thresholds. `r params$project_ref` are
+approximately `r params$interproject_distance_km` km apart, so if a local
+population of this size is assumed at all, it is better read as two
 similarly sized local populations rather than a single population shared
 between them (see below).
 
@@ -350,6 +360,8 @@ if (!is.null(params$fig_response_surfaces_3d)) {
   knitr::include_graphics(params$fig_response_surfaces_3d)
 }
 ```
+
+`r if (!is.null(params$fig_response_surfaces_3d_html)) paste0("A live, rotatable version of this figure (hover for exact values, toggle Fr scenarios) is provided as a standalone file, *", basename(params$fig_response_surfaces_3d_html), "*, alongside this document -- Word cannot embed an interactive plot directly, but the file opens in any browser without needing a server.")`
 
 Across the plausible demographic range, the imposed-threshold contours
 only appear for a narrow combination of relatively high adult survival and
@@ -487,7 +499,7 @@ assumption, since no inter-annual variance estimate for *V. murinus* vital
 rates was located) and applying demographic stochasticity (binomial and
 Poisson draws on the actual, finite population each year), replicated
 `r format(params$pva_n_reps, big.mark = ",")` times per scenario. The
-starting population is $N_{min} = $ `r format(params$n0_total, big.mark = ",")`
+starting population is $N_{min}=$ `r format(params$n0_total, big.mark = ",")`
 (both sexes, the local population assumed per facility throughout this
 note), split by sex and, within females, across stages using the Leslie
 matrix's own stable stage distribution. Three scenarios are compared: no
@@ -659,6 +671,73 @@ framework as published, to be weighed alongside the demographic
 uncertainty above when the imposed thresholds are discussed with lenders
 and other stakeholders.
 
+## Relative importance of demographic capacity and population size
+
+The analyses above distinguish two largely independent sources of
+uncertainty in the PBR calculation. The first concerns demographic
+capacity: the value of $\lambda_{max}$ that characterises the maximum
+potential rate of population growth under favourable conditions,
+explored above through the Niel-Lebreton sensitivity analysis, the
+species-specific Leslie matrix, the PVA-lite projection and the inverse
+demographic boundary analysis. The second concerns scale: the size of the
+population, $N_{min}$, to which that demographic capacity is applied,
+discussed in the previous section. $\lambda_{max}$ determines a
+*proportional* growth capacity; $N_{min}$ converts that proportion into an
+*absolute* number of removable individuals. Neither term alone determines
+the fatality threshold -- both are required, and $PBR = \frac{1}{2}
+(\lambda_{max}-1) \times F_r \times N_{min}$ is exactly linear in each.
+
+Considerable attention is commonly given to $\lambda_{max}$, since it
+represents the biological basis for the allowable-removal rate, and the
+sections above show that assumption deserves scrutiny for this species.
+This does not, however, mean $\lambda_{max}$ is the calculation's larger
+source of uncertainty in practice. Frick et al. (2026) state directly:
+"The $N_{min}$ value has the most influence on PBR for Least Concern
+species" -- directly relevant here, since `r params$species_common_name`
+is assessed as Least Concern throughout this note ($F_r=$ `r params$fr_corrected`).
+
+A direct comparison illustrates the same point numerically:
+
+```{r nmin-vs-lambda-sensitivity-table}
+knitr::kable(
+  params$nmin_vs_lambda_sensitivity, digits = c(0, 0, 0, 0),
+  col.names = c("Change", "PBR before", "PBR after", "% change"),
+  caption = "PBR's sensitivity to a plausible doubling of Nmin versus the full width of the paper's own fixed lambda_max benchmark range, all else held constant."
+)
+```
+
+A plausible doubling of $N_{min}$ changes PBR by
+`r round(params$nmin_vs_lambda_sensitivity$pct_change[1])`%; moving across
+the paper's entire fixed $\lambda_{max}$ benchmark range (1.20 to 1.24)
+changes it by only
+`r round(params$nmin_vs_lambda_sensitivity$pct_change[2])`%. This is not
+because $\lambda_{max}$ is unimportant -- it is because the paper's own
+benchmark range is narrow relative to how unconstrained $N_{min}$ is in
+this analysis, not because $N_{min}$ is inherently more uncertain in
+principle.
+
+```{r fig-nmin-lambda-surface}
+knitr::include_graphics(params$fig_nmin_lambda_surface)
+```
+
+This has a practical implication for how a PBR threshold should be
+periodically reviewed. $\lambda_{max}$ can reasonably be treated as a
+relatively stable, species-level demographic benchmark: there is little
+reason to revise it often, and it should change mainly in response to
+improved demographic evidence (survival, reproduction, age at first
+breeding) rather than to fluctuations in annual fatality counts.
+$N_{min}$, in contrast, is a locally defined population proxy under this
+framework (Population size (Nmin), above) and is the term most likely to
+change as better information becomes available on abundance, density,
+seasonal movement, migration, and connectivity between facilities --
+consistent with Frick et al.'s own framing of adaptive management, which
+anticipates updating thresholds as local population density, seasonal bat
+activity, or IUCN status information improves. Adaptive refinement of PBR
+for `r params$species_common_name` may therefore depend more on improving
+the definition and estimation of the population exposed to project
+mortality than on further narrowing $\lambda_{max}$ within the range
+considered in this note.
+
 ## Preliminary interpretation and implications
 
 Under a defensible, non-optimistic parametrisation -- recovery factor
@@ -687,8 +766,12 @@ additionally consider:
 - whether nearby facilities may draw on a shared regional or migratory population, given the PBR framework's own acknowledged limitation for cumulative, range-wide impacts;
 - and the broader adaptive-management context in which the threshold is applied.
 
-Presenting PBR as a range rather than a single fixed number provides a
-more robust and defensible basis for adaptive management decisions where
-demographic parameters, local population structure, and abundance
-estimates remain incompletely resolved -- as is the case for the
-`r params$species_common_name` in this region.
+As shown above, PBR uncertainty is better represented as two distinct
+components -- demographic capacity ($\lambda_{max}$) and population size
+($N_{min}$) -- than as a single range around one number, given how
+differently constrained each is in this analysis. Presenting the
+threshold this way provides a more robust and defensible basis for
+adaptive management decisions where demographic parameters, local
+population structure, and abundance estimates remain incompletely
+resolved -- as is the case for the `r params$species_common_name` in this
+region.

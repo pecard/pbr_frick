@@ -228,17 +228,20 @@ run_pbr_analysis <- function(fig_dir) {
   ##          report's plot.ly figure) -- a self-contained HTML widget with
   ##          a FIXED camera (so the static export is reproducible across
   ##          runs/machines -- same convention as the 3D turbine coverage
-  ##          maps in idf_bsh_dgy/R/coverage_3d_topography.R), screenshotted
-  ##          via webshot2 (headless Chrome/Edge, R/plotly_screenshot.R).
-  ##          Avoids 'kaleido', fragile to install across platforms;
-  ##          skipped with a message if webshot2/a browser aren't
-  ##          available, the 2D faceted version above always covers the
-  ##          same content.
+  ##          maps in idf_bsh_dgy/R/coverage_3d_topography.R). The
+  ##          self-contained interactive HTML widget is always kept as a
+  ##          standalone deliverable (Word/PowerPoint cannot embed a live
+  ##          plotly widget, but the HTML opens directly in any browser,
+  ##          no server needed); a static PNG for the docx is additionally
+  ##          screenshotted via webshot2 (headless Chrome/Edge,
+  ##          R/plotly_screenshot.R) if available. Avoids 'kaleido',
+  ##          fragile to install across platforms; the 2D faceted version
+  ##          above always covers the same content regardless.
   fig_response_surfaces_3d <- NULL
+  fig_response_surfaces_3d_html <- NULL
   has_3d_deps <- requireNamespace("plotly", quietly = TRUE) &&
     requireNamespace("RColorBrewer", quietly = TRUE) &&
-    requireNamespace("htmlwidgets", quietly = TRUE) &&
-    requireNamespace("webshot2", quietly = TRUE)
+    requireNamespace("htmlwidgets", quietly = TRUE)
 
   if (has_3d_deps) {
     hues <- c("Blues", "Greens", "Oranges", "Purples")  # one per Fr scenario, low->high
@@ -291,12 +294,18 @@ run_pbr_analysis <- function(fig_dir) {
       )
 
     fig_response_surfaces_3d_path <- file.path(fig_dir, "response_surfaces_3d.png")
-    export_ok <- !is.null(render_plotly_screenshot(fig3d, fig_response_surfaces_3d_path, width = 1000, height = 750))
-    if (export_ok) fig_response_surfaces_3d <- fig_response_surfaces_3d_path
+    fig_response_surfaces_3d_html_path <- file.path(fig_dir, "response_surfaces_3d.html")
+    screenshot_result <- render_plotly_screenshot(
+      fig3d, fig_response_surfaces_3d_path, width = 1000, height = 750,
+      html_path = fig_response_surfaces_3d_html_path
+    )
+    fig_response_surfaces_3d <- screenshot_result$png
+    fig_response_surfaces_3d_html <- screenshot_result$html
   } else {
     message(
-      "Packages 'plotly'/'RColorBrewer'/'htmlwidgets'/'webshot2' not all installed -- skipping the static ",
-      "3D response-surface print (install.packages(c(\"plotly\", \"RColorBrewer\", \"htmlwidgets\", \"webshot2\")) to include it). ",
+      "Packages 'plotly'/'RColorBrewer'/'htmlwidgets' not all installed -- skipping the 3D response-surface ",
+      "figure entirely (install.packages(c(\"plotly\", \"RColorBrewer\", \"htmlwidgets\")) to include it, plus ",
+      "'webshot2' for the static image embedded in the docx). ",
       "The report still includes the 2D faceted version."
     )
   }
@@ -661,6 +670,78 @@ run_pbr_analysis <- function(fig_dir) {
       theme(plot.subtitle = element_text(size = 8), strip.text = element_text(face = "bold"))
   })
 
+  ## ---- 5f. Relative sensitivity of PBR to Nmin vs lambda_max --------------
+  ## PBR = 0.5*(lambda_max-1)*Fr*Nmin is linear in BOTH Nmin and
+  ## (lambda_max-1), but the two are not equally uncertain in practice: no
+  ## independent population estimate exists (Population size (Nmin)
+  ## section), while lambda_max is pinned to the paper's own two fixed
+  ## benchmarks. A direct, simple comparison: a plausible doubling of Nmin
+  ## vs. the full width of the paper's own lambda_max benchmark range,
+  ## holding everything else fixed.
+  nmin_vs_lambda_sensitivity <- tibble::tibble(
+    change = c(
+      sprintf("Nmin: %s -> %s (lambda_max = %.2f)", format(nmin_assumed, big.mark = ","),
+              format(2 * nmin_assumed, big.mark = ","), min(lambda_max_benchmarks)),
+      sprintf("lambda_max: %.2f -> %.2f (Nmin = %s)", min(lambda_max_benchmarks), max(lambda_max_benchmarks),
+              format(nmin_assumed, big.mark = ","))
+    ),
+    pbr_before = c(
+      pbr_from_components(nmin_assumed, fr_corrected, min(lambda_max_benchmarks)),
+      pbr_from_components(nmin_assumed, fr_corrected, min(lambda_max_benchmarks))
+    ),
+    pbr_after = c(
+      pbr_from_components(2 * nmin_assumed, fr_corrected, min(lambda_max_benchmarks)),
+      pbr_from_components(nmin_assumed, fr_corrected, max(lambda_max_benchmarks))
+    )
+  ) %>%
+    mutate(pct_change = 100 * (pbr_after - pbr_before) / pbr_before)
+
+  ## ---- 5g. Nmin x lambda_max PBR surface -----------------------------------
+  ## Synthesises the report's two uncertainty axes in one figure: Nmin
+  ## (2,000-20,000, spanning the reverse-engineered value and the
+  ## migratory-population hypothesis discussed with Paulo) x lambda_max
+  ## (1.04-1.24, spanning the validated Leslie matrix's own empirical value
+  ## through the paper's fixed benchmarks), Fr held at the corrected value.
+  ## Nmin_assumed is marked explicitly as a reverse-engineered scenario, not
+  ## an abundance estimate (Reverse-engineering the imposed thresholds).
+  nmin_lambda_grid <- tidyr::expand_grid(
+    N = seq(2000, 20000, length.out = 200),
+    lambda = seq(1.04, 1.24, length.out = 200)
+  ) %>%
+    mutate(PBR = pbr_from_components(N, fr_corrected, lambda))
+
+  nmin_lambda_breaks <- sort(unique(c(pbr_thresholds$threshold, 200, 240, 500, 1000)))
+  nmin_lambda_break_colours <- setNames(
+    c("white", "grey75", "cyan", "chartreuse", "yellow", "red")[seq_along(nmin_lambda_breaks)],
+    as.character(nmin_lambda_breaks)
+  )
+
+  fig_nmin_lambda_surface <- file.path(fig_dir, "nmin_lambda_surface.png")
+  ggsave(fig_nmin_lambda_surface, width = 8.5, height = 5.5, dpi = 150, plot = {
+    ggplot(nmin_lambda_grid, aes(x = N, y = lambda)) +
+      geom_raster(aes(fill = PBR), interpolate = TRUE) +
+      geom_contour(aes(z = PBR, colour = after_stat(factor(level))), breaks = nmin_lambda_breaks, linewidth = 0.45) +
+      geom_vline(xintercept = nmin_assumed, linetype = "dashed", colour = "white", linewidth = 0.4) +
+      annotate(
+        "label", x = nmin_assumed, y = 1.235,
+        label = paste0("Nmin = ", format(nmin_assumed, big.mark = ","), "\n(reverse-engineered scenario,\nnot an abundance estimate)"),
+        colour = "grey20", fill = "white", alpha = 0.85, size = 2.6, hjust = -0.03, vjust = 1, label.size = 0
+      ) +
+      scale_fill_viridis_c(option = "C", name = "PBR\n(bats/yr)") +
+      scale_colour_manual(name = "PBR contour\n(bats/yr)", values = nmin_lambda_break_colours) +
+      labs(
+        x = "Nmin", y = "lambda_max",
+        title = "PBR as a function of Nmin and lambda_max",
+        subtitle = paste0(
+          "Fr = ", fr_corrected, " throughout. PBR moves the same amount for a given % change in Nmin as for the ",
+          "same % change in (lambda_max - 1) -- but Nmin's plausible range is far less constrained."
+        )
+      ) +
+      scale_x_continuous(labels = scales::comma) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 7.5))
+  })
+
   ## ---- 5. Assemble report params -----------------------------------------
   list(
     project_ref = project_ref,
@@ -689,6 +770,7 @@ run_pbr_analysis <- function(fig_dir) {
     fig_lambda_max = fig_lambda_max,
     fig_response_surfaces = fig_response_surfaces,
     fig_response_surfaces_3d = fig_response_surfaces_3d,
+    fig_response_surfaces_3d_html = fig_response_surfaces_3d_html,
     fig_pbr_density = fig_pbr_density,
     n_sim = mc_n_sim,
     pbr_quantiles = pbr_quantiles,
@@ -718,6 +800,8 @@ run_pbr_analysis <- function(fig_dir) {
     leslie_boundary_range_s_juv = leslie_boundary_range_s_juv,
     leslie_boundary_range_p_breed = leslie_boundary_range_p_breed,
     leslie_boundary_range_litter = leslie_boundary_range_litter,
-    fig_leslie_boundary_surface = fig_leslie_boundary_surface
+    fig_leslie_boundary_surface = fig_leslie_boundary_surface,
+    nmin_vs_lambda_sensitivity = nmin_vs_lambda_sensitivity,
+    fig_nmin_lambda_surface = fig_nmin_lambda_surface
   )
 }
