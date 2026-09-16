@@ -13,18 +13,25 @@
 ## single place to change if facility names need to be anonymised (e.g. for
 ## an external workshop presentation) or otherwise relabelled. Order must
 ## stay aligned with pbr_thresholds$threshold below (first label = first
-## threshold, 144; second = 120).
+## threshold, 112; second = 88). Project 1 = Bash WPP; Project 2 = Djangeldy
+## WPP -- this mapping is the one thing that must stay fixed everywhere in
+## this project, including in any new script or document (Paulo, 2026-09).
 facility_labels       <- c("Project 1", "Project 2")
 project_ref           <- paste(facility_labels, collapse = " & ")
 species_name          <- "Vespertilio murinus"
 species_common_name   <- "Parti-coloured bat"
 
 ## Imposed fatality thresholds under review -- one row per facility
-## (bats/year). No documented derivation is available for these values;
-## the analysis works backwards from them (see R/pbr_analysis.R).
+## (bats/year). Corrected 2026-09 from 144/120 to 112/88, the values
+## actually used operationally (confirmed by Paulo against the Blanket
+## Curtailment Plan technical note, which cites them as "PBR analysis"
+## thresholds per facility: 112 bats/yr = 1.4 bats/turbine/yr at Bash's 79
+## WTGs; 88 bats/yr = 1.1 bats/turbine/yr at Djangeldy's 79 WTGs). No
+## documented derivation of these specific numbers is available; the
+## analysis works backwards from them (see R/pbr_analysis.R).
 pbr_thresholds <- tibble::tibble(
   facility  = facility_labels,
-  threshold = c(144, 120)
+  threshold = c(112, 88)
 )
 
 ## IUCN status assumed to back-solve the ORIGINAL (likely, undocumented)

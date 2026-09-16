@@ -55,7 +55,7 @@ run_pbr_analysis <- function(fig_dir) {
     warning("No shared Nmin found across threshold x lambda_max pairings; falling back to the median.")
     median(candidates)
   }
-  nmin_assumed <- find_shared_value(backsolve_grid$Nmin_required)
+  nmin_assumed <- round(find_shared_value(backsolve_grid$Nmin_required))
 
   # Plausibility check against the REAL, known project geography (not a
   # back-solved area): what density would Nmin_assumed imply if it applies
@@ -579,7 +579,8 @@ run_pbr_analysis <- function(fig_dir) {
     ),
     `Consistent with imposed thresholds?` = c(
       "By construction (thresholds back-solved from these)",
-      sprintf("Thresholds sit at %.0f-%.0fth percentile (conservative)", threshold_percentiles$percentile_rank[1], threshold_percentiles$percentile_rank[2]),
+      sprintf("Thresholds sit at %.0f-%.0fth percentile (conservative)",
+              min(threshold_percentiles$percentile_rank), max(threshold_percentiles$percentile_rank)),
       sprintf("Only reached at S_adult>=%.2f (top of range)", leslie_grid %>% filter(n_stages==2, lambda_Leslie>=1.20) %>% summarise(m=min(s_adult)) %>% pull(m)),
       sprintf("%.0f-%.0f%% probability of decline over %d yrs under imposed thresholds", min(pva_risk_summary$p_decline[pva_risk_summary$scenario!="No additional mortality"]), max(pva_risk_summary$p_decline[pva_risk_summary$scenario!="No additional mortality"]), pva_n_years)
     )

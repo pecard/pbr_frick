@@ -289,17 +289,24 @@ knitr::kable(params$backsolve_grid, digits = c(0, 0, 2, 0),
 ```
 
 Under $F_r=$ `r params$fr_original` (`r params$iucn_status_original_guess`)
-and the paper's fixed $\lambda_{max}$ benchmarks applied per facility, a
-local population of ~`r format(params$nmin_assumed, big.mark = ",")`
-individuals near each facility reproduces the imposed thresholds exactly.
-This shows that ~`r format(params$nmin_assumed, big.mark = ",")` is *one*
-parameter combination consistent with the imposed thresholds under those
-assumptions -- it is not evidence that a population of that size was
-itself the value used when the thresholds were originally derived, since
-the parameters actually used for that derivation are not documented and
-were not provided along with the thresholds. `r params$project_ref` are
-approximately `r params$interproject_distance_km` km apart, so if a local
-population of this size is assumed at all, it is better read as two
+and the paper's fixed $\lambda_{max}$ benchmarks applied per facility, the
+four threshold x benchmark combinations above back-solve to Nmin values
+ranging from ~`r format(round(min(params$backsolve_grid$Nmin_required)), big.mark = ",")`
+to ~`r format(round(max(params$backsolve_grid$Nmin_required)), big.mark = ",")`
+individuals -- no single population size reproduces both facilities'
+thresholds under either fixed $\lambda_{max}$ benchmark. In the absence of
+a shared or unique value, this note uses their median
+(~`r format(params$nmin_assumed, big.mark = ",")`) as a single
+representative working value for the density-plausibility check that
+follows. This is a convenience for illustrative comparison, not evidence
+that a population of that specific size was itself assumed when the
+thresholds were originally derived: the parameters actually used for that
+derivation are not documented and were not provided along with the
+thresholds, and the absence of a shared value across the four
+combinations is itself consistent with that -- if anything, it reinforces
+that $N_{min}$ cannot be pinned down from the thresholds alone. `r params$project_ref`
+are approximately `r params$interproject_distance_km` km apart, so if a
+local population of this size is assumed at all, it is better read as two
 similarly sized local populations rather than a single population shared
 between them (see below).
 
@@ -490,9 +497,9 @@ used throughout this note (`r params$s_range[1]`-`r params$s_range[2]`),
 holding juvenile survival at Safi's value, $\lambda$ ranges
 `r round(params$leslie_vs_pbr$lambda_min, 2)`-`r round(params$leslie_vs_pbr$lambda_max_val, 2)`:
 it `r if (params$leslie_vs_pbr$reaches_120) "just reaches" else "does not reach"`
-the `r params$thresholds$facility[params$thresholds$threshold == 120]` benchmark (1.20) only at the top of the adult-survival range, and
+the `r params$thresholds$facility[which.min(params$thresholds$threshold)]` benchmark (1.20) only at the top of the adult-survival range, and
 `r if (params$leslie_vs_pbr$reaches_124) "reaches" else "never reaches"`
-the `r params$thresholds$facility[params$thresholds$threshold == 144]` benchmark (1.24) anywhere in it. Delaying maturation further (more
+the `r params$thresholds$facility[which.max(params$thresholds$threshold)]` benchmark (1.24) anywhere in it. Delaying maturation further (more
 pre-reproductive stages) pushes $\lambda$ down further still. Independently
 of the PBR/Niel-Lebreton analysis above, this validated, published,
 species-specific demographic model does not support the imposed
