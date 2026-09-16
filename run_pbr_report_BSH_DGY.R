@@ -20,10 +20,14 @@ pbr_settings_file <- "pbrSettings_BSH_DGY.R"
 output_file        <- "outputs/pbr_frick_technical_note_BSH_DGY.docx"
 
 source("R/pbr_analysis.R")
+source("R/adaptive_management_analysis.R")
 source("R/pbr_report.R")
 source(file.path("inputs", pbr_settings_file))
 
-report_params <- run_pbr_analysis(fig_dir = "outputs/figures")
+report_params <- c(
+  run_pbr_analysis(fig_dir = "outputs/figures"),
+  run_adaptive_management_demo(fig_dir = "outputs/figures")
+)
 
 build_pbr_report(
   output_file    = output_file,

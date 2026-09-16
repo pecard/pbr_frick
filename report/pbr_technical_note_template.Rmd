@@ -63,6 +63,16 @@ params:
   fig_leslie_boundary_surface: ""
   nmin_vs_lambda_sensitivity: !r NULL
   fig_nmin_lambda_surface: ""
+  adaptive_checkpoint_week: !r NULL
+  adaptive_forecast_summary: !r NULL
+  adaptive_focus_project: ""
+  adaptive_n_turbines: !r NULL
+  adaptive_n_curtailed: !r NULL
+  adaptive_pct_turbines_curtailed: !r NULL
+  adaptive_pct_mortality_captured: !r NULL
+  adaptive_required_abs_reduction: !r NULL
+  fig_adaptive_dashboard: ""
+  fig_turbine_pareto: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -87,6 +97,7 @@ Document history / List of changes.
 | Version 5 | Replaced the kaleido-based 3D response-surface export with a fixed-camera static image; anonymised facility names to Project 1/Project 2 for external presentation; added a direct quantitative comparison of PBR's sensitivity to Nmin versus lambda_max, and a synthesising Nmin x lambda_max surface figure | 2026-09 | Paulo Cardoso |
 | Version 6 | Restructured section hierarchy (Leslie matrix cross-check and the closing interpretation promoted to top-level sections; PVA-lite, the three-way comparison, the boundary analysis and the Nmin discussion grouped under a new "Comparing approaches" section); improved legibility of four figures; rewrote the closing section as "Integrated interpretation and implications", synthesising the full body of evidence rather than the PBR/Niel-Lebreton sensitivity analysis alone | 2026-09 | Paulo Cardoso |
 | Version 7 | Promoted PVA-lite to its own top-level section (4), ahead of "Comparing approaches" (5, now containing the three-way comparison, the boundary analysis, the Nmin discussion and the capacity-vs-population-size synthesis as 5.1-5.4); "Integrated interpretation and implications" is now section 6 | 2026-09 | Paulo Cardoso |
+| Version 8 | Added section 7, "Towards operational adaptive mortality management" -- a proposed (not yet validated) methodology for converting the annual PBR reference into a weekly PCFM-driven control chart and turbine-level curtailment allocation. Entirely illustrative pending the real weekly PCFM dataset and retrospective validation | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -806,3 +817,143 @@ to use accumulating monitoring evidence within an adaptive-management
 framework. Where those data remain uncertain, PBR is more appropriately
 represented as a decision range with explicitly documented assumptions
 than as a uniquely determined annual mortality limit.
+
+# Towards operational adaptive mortality management (proposed framework)
+
+**Everything in this section is illustrative.** The seasonal risk
+profile, the weekly fatality series and the turbine-level fatality
+distribution used below are synthetic, built only to demonstrate a
+proposed monitoring mechanism end to end -- they are not real PCFM
+counts, and the specific figures they produce (trigger status, forecasts,
+turbine selections) describe none of `r params$project_ref`'s actual
+performance. This section sets out a methodology to be populated with the
+real weekly (ideally turbine-level) PCFM series once compiled, and
+validated retrospectively against it, before any operational use.
+
+The preceding sections address a different question from the one that
+actually has to be answered operationally. They ask what fatality
+threshold the PBR framework, and the demographic evidence available for
+this species, can defensibly support. Operating a facility under PCFM,
+however, requires deciding *when*, *where*, and *by how much* to adjust
+curtailment, given that fatalities accumulate continuously through the
+season and mitigation can be changed while the season is still under way.
+An annual threshold checked once at year-end cannot inform that decision
+-- by the time an exceedance is confirmed, the mortality has already
+occurred and the season is over.
+
+This section proposes three deliberately separated layers, each updated
+on a different cadence:
+
+- a **biological reference** (the PBR-derived annual figure discussed
+  throughout this note) -- relatively stable, revisited only when
+  materially new demographic or population evidence becomes available,
+  not adjusted in response to normal year-to-year fatality variation;
+- a **dynamic mortality assessment** -- updated weekly from PCFM, tracking
+  observed mortality against what the biological reference implies for
+  that point in the season;
+- a **dynamic, turbine-level curtailment prescription** -- the
+  operational output of the assessment above, adjusted as frequently as
+  the monitoring data support.
+
+Separating these layers matters for how this is presented to lenders and
+regulators: the proposal is not a "flexible PBR" that changes whenever
+mortality becomes inconvenient. The biological reference stays fixed; it
+is the monitoring-triggered operational response that is dynamic, on a
+pre-agreed, documented, and auditable basis.
+
+## From an annual reference to a weekly control chart
+
+Mortality risk for this species is not spread evenly across the year --
+it concentrates in the migration windows. Comparing cumulative PCFM
+mortality against a flat, linear fraction of the annual threshold
+therefore misrepresents how much of the year's risk has already passed.
+Instead, the annual reference is converted into an **expected cumulative
+trajectory** that follows the same seasonal shape mortality itself
+follows, with statistical control limits around it (a Poisson-based
+control chart, standard practice for monitoring count data): if realised
+mortality is on the reference's own pace, the cumulative count at week
+$t$ is approximately Poisson-distributed around the expected value at
+that point. Observed cumulative mortality crossing that trajectory
+(AMBER) or its upper control limit (RED) is an early-warning signal, not
+merely "a bad week", with a full season's worth of response time still
+available.
+
+```{r fig-adaptive-dashboard}
+knitr::include_graphics(params$fig_adaptive_dashboard)
+```
+
+Each trigger tier maps to an escalation step on the turbines already
+identified as critical: maintain the current prescription (GREEN);
+increase curtailment intensity, e.g. a lower cut-in speed or extended
+curtailed hours (AMBER); escalate to a wider turbine subset and the most
+conservative cut-in speed for the remainder of the high-risk window, and
+trigger a structured, documented review (RED). This is an escalation
+ladder, not yet a continuously optimised rule, because only one
+before/after curtailment data point currently exists (critical turbines
+curtailed vs. not). A fitted dose-response relationship (fatality rate
+against cut-in speed, or against % of capacity curtailed) becomes
+possible once curtailment intensity itself, not just its presence or
+absence, has been varied across enough weeks -- a natural extension once
+more seasons of PCFM under varying prescriptions accumulate.
+
+## Forecasting the season, and translating an exceedance into turbines
+
+Beyond the current trigger status, the control chart above supports a
+forward-looking forecast: given the realised mortality rate relative to
+the reference's own pace over a recent window, the remaining season can
+be projected forward stochastically to estimate where the year is likely
+to finish under the current regime, and with what probability it exceeds
+the annual reference. This is a forecast conditional on the current
+regime continuing unchanged, not a claim about the true underlying
+mortality process, and its uncertainty reflects only the stochastic
+projection of the remaining season -- not additional uncertainty in the
+PCFM estimate to date, which would require the detection-probability and
+carcass-persistence model underlying the real PCFM estimator (not
+available in this illustrative demonstration).
+
+Where a forecast indicates a likely exceedance, the reduction required is
+calculated on the **remaining season specifically** -- fatalities already
+incurred cannot be recovered, so the relevant question is how much the
+remaining, still-avoidable mortality needs to fall by, not how the whole
+year compares to the annual figure. Turbine-level PCFM data make it
+possible to translate that reduction directly into a prescription: rank
+turbines by their expected remaining contribution to mortality, and
+select the smallest subset whose curtailment (at an assumed
+effectiveness) meets the required reduction. Because mortality is
+typically concentrated at a minority of turbines, this can meet a
+material reduction target by curtailing only a small share of the
+turbine fleet, rather than applying uniform curtailment fleet-wide.
+
+```{r fig-turbine-pareto}
+knitr::include_graphics(params$fig_turbine_pareto)
+```
+
+In the illustrative example above, at a synthetic mid-season checkpoint
+(week `r params$adaptive_checkpoint_week`), the forecast for
+`r params$adaptive_focus_project` implies a required reduction of
+approximately `r round(params$adaptive_required_abs_reduction)` fatalities
+in the remaining season, met by curtailing `r params$adaptive_n_curtailed`
+of `r params$adaptive_n_turbines` turbines
+(`r round(params$adaptive_pct_turbines_curtailed)`% of the fleet,
+accounting for `r round(params$adaptive_pct_mortality_captured)`% of the
+project's expected remaining mortality). These specific figures describe
+the synthetic demonstration only.
+
+## What this needs to become operational
+
+This framework is not yet usable for real decisions. It requires, at
+minimum: the real weekly (ideally turbine-level) PCFM series in place of
+the synthetic generator used here; a seasonal risk profile ($q_t$ in
+project terminology) derived from that real series rather than assumed;
+and retrospective validation -- running the framework against historical
+weekly data to establish on which weeks it would have triggered, which
+turbines it would have selected, and what reduction it would have
+prescribed, before relying on it prospectively. Two further extensions
+are deliberately left for that stage rather than built on synthetic data
+now: incorporating energy-loss cost into the turbine allocation (so the
+prescription minimises energy foregone subject to meeting the required
+reduction, rather than ranking by expected mortality alone), and an
+escalate/relax hysteresis rule (requiring several consecutive
+low-mortality assessments, with adequate monitoring power to make a low
+count informative, before curtailment is relaxed -- avoiding a rule that
+escalates and relaxes on ordinary week-to-week variation).
