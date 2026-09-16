@@ -41,7 +41,7 @@ fr_panels <- c(0.3, 0.5)
 surface_grid <- tidyr::expand_grid(N = n_seq, lambda = lambda_seq, Fr = fr_panels) %>%
   mutate(PBR = pbr_from_components(N, Fr, lambda), Fr_label = paste0("Fr = ", Fr))
 
-pbr_breaks <- c(120, 240, 500, 1000)
+pbr_breaks <- sort(unique(c(pbr_thresholds$threshold, 240, 500, 1000)))
 lambda_refs <- tibble::tibble(
   lambda = c(lambda_female, 1.20, 1.24),
   label = c(sprintf("Leslie/Safi (%.3f)", lambda_female), "PBR 1.20", "PBR 1.24")
@@ -55,13 +55,13 @@ ggsave(fig_nmin_lambda_surface, width = 11, height = 6, dpi = 150, plot = {
     geom_hline(data = lambda_refs, aes(yintercept = lambda), linetype = "dashed", colour = "white", linewidth = 0.3) +
     geom_text(data = lambda_refs, aes(x = 2000, y = lambda, label = label), colour = "white",
               hjust = 0, vjust = -0.4, size = 2.6) +
-    geom_vline(xintercept = 4000, linetype = "dotted", colour = "grey90") +
-    annotate("text", x = 4000, y = 1.29, label = "Nmin=4,000", colour = "grey90", size = 2.6, hjust = -0.05) +
+    geom_vline(xintercept = 3022, linetype = "dotted", colour = "grey90") +
+    annotate("text", x = 3022, y = 1.29, label = "Nmin=3,022\n(median fallback)", colour = "grey90", size = 2.6, hjust = -0.05) +
     scale_x_log10(labels = scales::comma) +
     facet_wrap(~Fr_label) +
     scale_fill_viridis_c(name = "PBR\n(bats/yr)", option = "C") +
     scale_colour_manual(name = "PBR contour\n(bats/yr)",
-                         values = setNames(c("cyan", "chartreuse", "yellow", "red")[seq_along(pbr_breaks)],
+                         values = setNames(c("cyan", "deepskyblue", "chartreuse", "yellow", "red")[seq_along(pbr_breaks)],
                                             as.character(pbr_breaks))) +
     labs(
       x = "Nmin (log scale)", y = "lambda",
@@ -74,7 +74,7 @@ ggsave(fig_nmin_lambda_surface, width = 11, height = 6, dpi = 150, plot = {
 cat("Wrote", fig_nmin_lambda_surface, "\n")
 
 # ---- 2. Diagnostic: observed mortality as a fraction of assumed Nmin ------
-n_diag <- c(4000, 8000, 10000, 15000, 20000, 30000, 40000, 60000, 80000, 100000)
+n_diag <- c(3022, 6044, 10000, 15000, 20000, 30000, 40000, 60000, 80000, 100000)
 diag_tbl <- tibble::tibble(N = n_diag) %>%
   mutate(pct_of_N = 100 * observed_mortality_annual / N)
 
@@ -116,7 +116,7 @@ ggsave(fig_fatality_fraction, width = 9, height = 5.5, dpi = 150, plot = {
               size = 3, hjust = 1, vjust = -0.3) +
     geom_line(colour = "grey20", linewidth = 0.9) +
     geom_point(size = 2, colour = "grey20") +
-    geom_point(data = diag_tbl %>% filter(N %in% c(4000, 8000)), colour = "black", fill = "orange",
+    geom_point(data = diag_tbl %>% filter(N %in% c(3022, 6044)), colour = "black", fill = "orange",
                shape = 21, size = 3.5) +
     scale_x_log10(labels = scales::comma) +
     labs(

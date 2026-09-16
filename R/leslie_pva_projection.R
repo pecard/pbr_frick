@@ -6,18 +6,18 @@
 ## stochasticity (binomial/Poisson realisations of those rates applied to
 ## the actual, finite population), then projects 25 years under:
 ##   (1) no additional mortality -- the model's own baseline trend;
-##   (2) the imposed BSH threshold (144 bats/year) as extra removal;
-##   (3) the imposed DGY threshold (120 bats/year) as extra removal.
+##   (2) the imposed Project 1 threshold (112 bats/year) as extra removal;
+##   (3) the imposed Project 2 threshold (88 bats/year) as extra removal.
 ## This is the direct, practical question behind the whole PBR review:
 ## given a validated, species-specific demographic model, do the
 ## currently-imposed fatality thresholds look sustainable over a
 ## generation-scale horizon?
 ##
-## Starting population: N0 = 4000 (both sexes), the Nmin assumed per
-## facility throughout the PBR analysis (see R/pbr_analysis.R /
-## inputs/pbrSettings_BSH_DGY.R) -- halved here to female-only, since the
-## validated matrix (and hence this projection) tracks females only, the
-## male block never feeding back into it (see leslie_dekker_limpens.R).
+## Starting population: N0 = 3022 (both sexes), the median-fallback Nmin
+## back-solved from the corrected 112/88 thresholds in R/pbr_analysis.R
+## (see inputs/pbrSettings_BSH_DGY.R) -- halved here to female-only, since
+## the validated matrix (and hence this projection) tracks females only,
+## the male block never feeding back into it (see leslie_dekker_limpens.R).
 ## Turbine removal is split evenly across sexes (no strong evidence of an
 ## extreme sex bias was located for this analysis) and, within females,
 ## proportionally across the juvenile/adult stages by their relative
@@ -96,7 +96,7 @@ simulate_trajectory <- function(n0_juv, n0_adult, n_years = 25, annual_removal =
 }
 
 # ---- Monte Carlo: n_reps trajectories per scenario -------------------------
-n0_total <- 4000            # Nmin per facility, established in the PBR analysis
+n0_total <- 3022            # Nmin (median fallback), established in the PBR analysis
 n0_female <- n0_total / 2
 n0_juv <- round(n0_female * 0.35)   # initial stage split ~ stable stage distribution (see below)
 n0_adult <- n0_female - n0_juv
@@ -109,8 +109,8 @@ n0_adult <- n0_female - n0_juv
 n_reps <- 1000
 n_years <- 25
 scenarios <- tibble::tibble(
-  scenario = c("No additional mortality", "BSH threshold (144/yr)", "DGY threshold (120/yr)"),
-  annual_removal = c(0, 144, 120)
+  scenario = c("No additional mortality", "Project 1 threshold (112/yr)", "Project 2 threshold (88/yr)"),
+  annual_removal = c(0, 112, 88)
 )
 
 set.seed(42)

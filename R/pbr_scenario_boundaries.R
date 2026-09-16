@@ -1,7 +1,7 @@
 ##
 ## Conservative vs. relaxed PBR scenario boundaries, for an informed
 ## lender/promoter discussion -- NOT an argument to raise the imposed
-## thresholds (144 BSH / 120 DGY), which stay fixed throughout. Instead:
+## thresholds (112 Project 1 / 88 Project 2), which stay fixed throughout. Instead:
 ## (a) makes explicit which knobs PBR's own uncertainty lives in (Fr's
 ## dependence on an IUCN-status judgement call, the choice of lambda_max
 ## benchmark, Nmin's dependence on an unresolved local-vs-regional/
@@ -41,7 +41,7 @@ fr_scenarios_boundary <- tibble::tibble(
 # lambda_max: the paper's own two fixed benchmarks (not widened further here).
 lambda_max_boundary <- lambda_max_benchmarks  # 1.24, 1.20
 # Nmin: the population-size knob (see R/nmin_sensitivity_analysis.R).
-nmin_boundary <- c(4000, 8000)
+nmin_boundary <- c(3022, 6044)
 
 boundary_grid <- tidyr::expand_grid(fr_scenarios_boundary, lambda_max = lambda_max_boundary, nmin = nmin_boundary) %>%
   mutate(PBR = pbr_from_components(nmin, fr, lambda_max))
@@ -72,10 +72,10 @@ cat(sprintf(
 
 # ---- 3. Where do the imposed thresholds and curtailment outcome sit? ------
 reference_points <- tibble::tibble(
-  label = c("BSH imposed threshold", "DGY imposed threshold",
+  label = c("Project 1 imposed threshold", "Project 2 imposed threshold",
             "Pre-curtailment (illustrative)", "Post-curtailment (illustrative)"),
-  value_low  = c(144, 120, pre_curtailment_annual["low"], post_curtailment_annual["low"]),
-  value_high = c(144, 120, pre_curtailment_annual["high"], post_curtailment_annual["high"]),
+  value_low  = c(112, 88, pre_curtailment_annual["low"], post_curtailment_annual["low"]),
+  value_high = c(112, 88, pre_curtailment_annual["high"], post_curtailment_annual["high"]),
   type = c("Imposed threshold", "Imposed threshold", "Observed mortality", "Observed mortality")
 )
 
@@ -108,7 +108,8 @@ ggsave(fig_pbr_boundaries, width = 11, height = 6.5, dpi = 150, plot = {
     facet_wrap(~nmin_label) +
     scale_y_log10(limits = c(4, 1200)) +
     scale_colour_manual(name = "lambda_max benchmark", values = c("1.2" = "cyan4", "1.24" = "chartreuse4")) +
-    scale_linetype_manual(name = "Imposed threshold", values = c(BSH = "dashed", DGY = "dotted")) +
+    scale_linetype_manual(name = "Imposed threshold",
+                           values = setNames(c("dashed", "dotted"), facility_labels)) +
     labs(
       x = "Recovery factor (Fr) scenario", y = "PBR (bats/year), log scale",
       title = "PBR scenario boundaries: conservative to relaxed, vs. imposed thresholds and curtailment outcome",
@@ -126,8 +127,8 @@ cat("\nWrote", fig_pbr_boundaries, "\n")
 
 # ---- 5. PVA-lite: imposed threshold vs. actual post-curtailment removal ---
 # Same validated structure/settings as R/nmin_sensitivity_analysis.R, run at
-# Nmin = 4000 (status quo), comparing the imposed-threshold removal against
-# the illustrative actual post-curtailment removal rate.
+# Nmin = 3022 (median-fallback, status quo), comparing the imposed-threshold
+# removal against the illustrative actual post-curtailment removal rate.
 leslie_F <- leslie_p_breed * leslie_litter * leslie_sex_ratio * leslie_s_juv
 A_leslie_validated <- build_dekker_stage_matrix(2, leslie_s_juv, leslie_s_adult_f, leslie_F)
 stable_dist <- Re(eigen(A_leslie_validated)$vectors[, 1]); stable_dist <- stable_dist / sum(stable_dist)
@@ -170,14 +171,14 @@ simulate_pva_trajectory <- function(n0_juv, n0_adult, n_years, annual_removal) {
   traj
 }
 
-n0_total <- 4000
+n0_total <- 3022
 n0_female <- n0_total / 2
 n0_juv <- round(n0_female * stable_dist[1]); n0_adult <- n0_female - n0_juv
 
 curtailment_scenarios <- tibble::tibble(
-  scenario = c("No additional mortality", "BSH imposed threshold (144/yr)",
+  scenario = c("No additional mortality", "Project 1 imposed threshold (112/yr)",
                "Pre-curtailment (illustrative, ~140/yr)", "Post-curtailment (illustrative, ~7.5/yr)"),
-  annual_removal = c(0, 144, mean(pre_curtailment_annual), mean(post_curtailment_annual))
+  annual_removal = c(0, 112, mean(pre_curtailment_annual), mean(post_curtailment_annual))
 ) %>%
   mutate(scenario = factor(scenario, levels = scenario))
 
@@ -200,7 +201,7 @@ curtailment_risk_summary <- curtailment_trajectories %>%
     p_decline = mean(final_N < n0_total) * 100, p_quasi_extinction = mean(ever_below_threshold) * 100, .groups = "drop"
   )
 
-cat("\n=== PVA-lite: imposed threshold vs. illustrative pre/post-curtailment removal (Nmin=4000) ===\n")
+cat("\n=== PVA-lite: imposed threshold vs. illustrative pre/post-curtailment removal (Nmin=3022) ===\n")
 print(as.data.frame(curtailment_risk_summary))
 
 curtailment_summary_by_year <- curtailment_trajectories %>%
@@ -220,7 +221,7 @@ ggsave(fig_pva_curtailment, width = 11, height = 4.5, dpi = 150, plot = {
     scale_fill_viridis_d(option = "C", end = 0.8, guide = "none") +
     labs(
       x = "Year", y = "Population (both sexes)",
-      title = "PVA-lite: the effect of curtailment on projected trend (Nmin = 4000)",
+      title = "PVA-lite: the effect of curtailment on projected trend (Nmin = 3022)",
       subtitle = "Pre/post-curtailment removal rates are illustrative brackets, not confirmed monthly counts"
     ) +
     theme_minimal() +

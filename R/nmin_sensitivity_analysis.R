@@ -1,12 +1,13 @@
 ##
 ## Nmin sensitivity: how much does doubling the assumed local population
-## (Nmin = 8000 instead of 4000, e.g. if the region hosts a migratory
+## (Nmin = 6044 instead of 3022, e.g. if the region hosts a migratory
 ## passage roughly doubling the resident count) change each of the 3
 ## approaches already explored (PBR/Niel-Lebreton, the validated Leslie
-## matrix, PVA-lite)? Nmin = 4000 is not a literature figure -- it is the
-## value the imposed thresholds back-solve to under the analysis's own
-## original-IUCN-guess assumption (see R/pbr_analysis.R section 1); this
-## script treats it as one scenario among others, not a fixed truth.
+## matrix, PVA-lite)? Nmin = 3022 is not a literature figure -- it is the
+## median-fallback value the four threshold x lambda_max combinations
+## back-solve to under the analysis's own original-IUCN-guess assumption
+## (see R/pbr_analysis.R, "Reverse-engineering the imposed thresholds");
+## this script treats it as one scenario among others, not a fixed truth.
 ##
 
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2) })
@@ -17,7 +18,7 @@ source("R/leslie_dekker_limpens.R")     # S_j, S_af, p_breed, litter, sex_ratio,
 source("inputs/pbrSettings_BSH_DGY.R")  # s_range, alpha_range, fr_corrected inputs, pbr_thresholds, mc_*, leslie_*, pva_*
 
 fr_corrected <- fr_from_iucn(iucn_status_corrected)
-nmin_scenarios <- c(4000, 8000)
+nmin_scenarios <- c(3022, 6044)
 fig_dir <- "outputs/figures"
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 
@@ -210,7 +211,7 @@ ggsave(fig_pva_nmin_sensitivity, width = 11, height = 6.5, dpi = 150, plot = {
     labs(
       x = "Year", y = "Population (both sexes)",
       title = "PVA-lite: sensitivity to the assumed starting population (N0 = Nmin)",
-      subtitle = "Same absolute annual removal (144/120 bats/yr) applied to a 2x larger starting population"
+      subtitle = "Same absolute annual removal (112/88 bats/yr) applied to a 2x larger starting population"
     ) +
     theme_minimal() +
     theme(strip.text = element_text(face = "bold", size = 8), plot.subtitle = element_text(size = 8))

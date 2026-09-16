@@ -107,7 +107,7 @@ weekly_fatalities_synthetic <- function(annual_threshold, curtailment_start_week
 }
 
 # ---- 5. Assemble the dashboard for each project ----------------------------
-project_thresholds <- tibble::tibble(project = c("Project 1", "Project 2"), threshold = c(144, 120))
+project_thresholds <- tibble::tibble(project = c("Project 1", "Project 2"), threshold = c(112, 88))
 
 dashboard_data <- lapply(seq_len(nrow(project_thresholds)), function(i) {
   proj <- project_thresholds$project[i]
