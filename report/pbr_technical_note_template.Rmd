@@ -85,6 +85,7 @@ Document history / List of changes.
 | Version 3 | Added a Leslie-matrix cross-check (validated against the published Dekker & Limpens 2024 model) and a 25-year stochastic PVA-lite projection, with a summary comparison against the PBR/Niel-Lebreton approach | 2026-09 | Paulo Cardoso |
 | Version 4 | Added an inverse demographic boundary analysis on the validated Leslie matrix, and a discussion of Nmin as a source of uncertainty, including Frick et al.'s own definition of local population size and its stated limitation for cumulative impacts across nearby facilities | 2026-09 | Paulo Cardoso |
 | Version 5 | Replaced the kaleido-based 3D response-surface export with a fixed-camera static image; anonymised facility names to Project 1/Project 2 for external presentation; added a direct quantitative comparison of PBR's sensitivity to Nmin versus lambda_max, and a synthesising Nmin x lambda_max surface figure | 2026-09 | Paulo Cardoso |
+| Version 6 | Restructured section hierarchy (Leslie matrix cross-check and the closing interpretation promoted to top-level sections; PVA-lite, the three-way comparison, the boundary analysis and the Nmin discussion grouped under a new "Comparing approaches" section); improved legibility of four figures; rewrote the closing section as "Integrated interpretation and implications", synthesising the full body of evidence rather than the PBR/Niel-Lebreton sensitivity analysis alone | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -740,37 +741,67 @@ the definition and estimation of the population exposed to project
 mortality than on further narrowing $\lambda_{max}$ within the range
 considered in this note.
 
-# Preliminary interpretation and implications
+# Integrated interpretation and implications
 
-Under a defensible, non-optimistic parametrisation -- recovery factor
-corrected to the species' actual (non-threatened) status, and demographic
-parameters treated as a literature-supported range rather than a single
-fixed point -- the currently imposed thresholds sit near the conservative
-end of the resulting PBR distribution rather than at its centre. This
-indicates the current thresholds are not unreasonably permissive; if
-anything, a flexible parametrisation would support materially higher
-values, approaching double the current figures at the upper end of the
-plausible range.
+The analyses presented in this note do not identify a single alternative
+fatality threshold that can be considered demonstrably more biologically
+correct than the currently imposed values. Rather, they show that the
+apparent precision of fixed annual thresholds is greater than warranted
+by the available demographic and population information.
 
-These results reinforce that any operational threshold derived from PBR
-should be accompanied by transparent documentation of the underlying
-calculations, demographic assumptions, local population estimates, and
-uncertainty analysis. A nominal threshold can still serve as a
-precautionary reference point, but mitigation decisions should
-additionally consider:
+Within the PBR/Niel-Lebreton framework, and after correcting the recovery
+factor to the species' Least Concern status and allowing demographic
+parameters to vary across literature-supported ranges, the currently
+imposed thresholds fall towards the conservative end of the resulting PBR
+distribution. This remains relevant: the existing values should not be
+interpreted as uniquely determined biological limits, and alternative
+plausible PBR parametrisations produce materially different thresholds.
 
-- the plausible uncertainty interval surrounding the threshold;
+The additional demographic analyses, however, qualify any simple
+inference that the thresholds should therefore be increased. The
+validated species-specific Leslie model produces an empirical growth rate
+of approximately `r round(params$lambda_leslie_validated, 3)`,
+substantially below the fixed PBR $\lambda_{max}$ benchmarks of
+1.20-1.24, while the inverse boundary analysis shows that reaching those
+benchmarks requires comparatively favourable combinations of vital rates.
+The PVA-lite similarly indicates that the current thresholds are not
+associated with catastrophic population outcomes under the model
+assumptions, but that sustained annual removal at those levels measurably
+increases the probability of population decline relative to the
+no-additional-mortality scenario.
+
+A further and potentially larger uncertainty concerns $N_{min}$. The
+value of approximately `r format(params$nmin_assumed, big.mark = ",")`
+explored in this note is a reverse-engineered scenario consistent with
+particular PBR assumptions, not an independently estimated population
+size. Because $N_{min}$ enters PBR linearly, uncertainty over the size,
+spatial extent and connectivity of the population exposed to project
+mortality can have greater influence on the numerical threshold than
+refinement of $\lambda_{max}$ within the fixed range considered here.
+This is particularly relevant for a migratory species and for nearby
+facilities that may interact with the same regional population.
+
+Taken together, these results support retaining PBR as a precautionary
+**management reference**, but not interpreting the currently imposed
+values as precise biological boundaries separating acceptable from
+unacceptable mortality. Approaching or exceeding a nominal threshold
+should therefore trigger structured review rather than predetermine a
+single mitigation response. Such review should consider:
+
+- the magnitude and persistence of exceedance;
+- the position of observed mortality relative to the PBR decision range and the assumptions generating that range;
 - temporal trends in fatality estimates;
 - uncertainty associated with PCFM-derived mortality estimates;
 - the conservation relevance and demographic sensitivity of the affected species;
 - the spatial concentration and recurrence of fatalities;
 - the expected effectiveness and proportionality of mitigation measures;
-- whether nearby facilities may draw on a shared regional or migratory population, given the PBR framework's own acknowledged limitation for cumulative, range-wide impacts;
+- evidence of population connectivity, given the PBR framework's own acknowledged limitation for cumulative, range-wide impacts;
 - and the broader adaptive-management context in which the threshold is applied.
 
-The distinction between demographic capacity and population size drawn in
-the preceding section should guide how this threshold is periodically
-reviewed: revisiting $N_{min}$ as better abundance, movement and
-connectivity evidence becomes available is likely to matter more than
-further narrowing $\lambda_{max}$, for the `r params$species_common_name`
-in this region.
+The principal opportunity for future refinement is therefore not simply
+to select a different fixed $\lambda_{max}$, but to progressively improve
+the biological interpretation of the population exposed to mortality and
+to use accumulating monitoring evidence within an adaptive-management
+framework. Where those data remain uncertain, PBR is more appropriately
+represented as a decision range with explicitly documented assumptions
+than as a uniquely determined annual mortality limit.
