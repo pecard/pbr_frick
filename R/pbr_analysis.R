@@ -544,6 +544,111 @@ run_pbr_analysis <- function(fig_dir) {
     )
   )
 
+  ## ---- 5e. Inverse demographic boundary analysis ("stress test") --------
+  ## Where would the validated Leslie structure's four vital rates need to
+  ## sit to reach the PBR benchmarks (1.20/1.24)? Framing (Paulo, 2026-09):
+  ## lambda from this matrix is driven by OBSERVED/empirical vital rates
+  ## (Safi 2006) -- lambda_observed, not lambda_max, PBR's theoretical
+  ## ceiling under favourable, non-resource-limited conditions. Showing
+  ## this matrix does not reach 1.20/1.24 at Safi's own values therefore
+  ## does NOT by itself show those benchmarks are biologically impossible;
+  ## this section instead characterises what demographic combinations would
+  ## be needed, and how they compare with the empirical baseline and with
+  ## plausible literature ranges (R/leslie_boundary_analysis.R, where this
+  ## was first developed and run standalone). No calibration to the
+  ## published elasticities (0.530/0.235/0.235) is attempted -- the lambda
+  ## match alone (1.0474 vs 1.047) validates the reconstruction.
+  boundary_baseline <- list(s_juv = leslie_s_juv, s_adult = leslie_s_adult_f,
+                            p_breed = leslie_p_breed, litter = leslie_litter)
+  boundary_lambda_of <- function(s_juv, s_adult, p_breed, litter) {
+    F_rec <- p_breed * litter * leslie_sex_ratio * s_juv
+    leslie_lambda(build_dekker_stage_matrix(2, s_juv, s_adult, F_rec))
+  }
+  stopifnot(abs(do.call(boundary_lambda_of, boundary_baseline) - lambda_leslie_validated) < 1e-9)
+
+  boundary_ranges <- list(s_adult = leslie_boundary_range_s_adult, s_juv = leslie_boundary_range_s_juv,
+                           p_breed = leslie_boundary_range_p_breed, litter = leslie_boundary_range_litter)
+  boundary_search_ceiling <- list(s_adult = 0.999, s_juv = 0.99, p_breed = 1.0, litter = 6)
+  boundary_param_labels <- c(s_adult = "Adult female survival", s_juv = "Juvenile survival",
+                              p_breed = "Breeding fraction", litter = "Litter size")
+
+  boundary_solve_breakeven <- function(param, target, search_upper) {
+    f <- function(x) {
+      args <- boundary_baseline
+      args[[param]] <- x
+      do.call(boundary_lambda_of, args) - target
+    }
+    lo <- boundary_baseline[[param]]
+    if (f(lo) >= 0) return(lo)
+    if (f(search_upper) < 0) return(NA)
+    uniroot(f, c(lo, search_upper))$root
+  }
+
+  leslie_breakeven_tbl <- tidyr::expand_grid(param = names(boundary_baseline), target = lambda_max_benchmarks) %>%
+    rowwise() %>%
+    mutate(
+      baseline_value = boundary_baseline[[param]],
+      required_value = boundary_solve_breakeven(param, target, boundary_search_ceiling[[param]]),
+      plausible_upper = boundary_ranges[[param]][2],
+      pct_of_plausible_range = 100 * (required_value - boundary_ranges[[param]][1]) / (plausible_upper - boundary_ranges[[param]][1]),
+      within_plausible_range = !is.na(required_value) & required_value <= plausible_upper
+    ) %>%
+    ungroup() %>%
+    mutate(parameter_label = unname(boundary_param_labels[param])) %>%
+    select(parameter_label, lambda_target = target, safi_baseline = baseline_value,
+           required_value, plausible_upper, pct_of_plausible_range, within_plausible_range)
+
+  # Full 4-way factorial over all vital rates' plausible ranges (n_stages
+  # fixed at 2, the validated -- and fastest-maturing, hence most
+  # favourable to reaching high lambda -- structure).
+  boundary_full_grid <- tidyr::expand_grid(
+    s_adult = seq(leslie_boundary_range_s_adult[1], leslie_boundary_range_s_adult[2], length.out = leslie_boundary_grid_resolution),
+    s_juv   = seq(leslie_boundary_range_s_juv[1], leslie_boundary_range_s_juv[2], length.out = leslie_boundary_grid_resolution),
+    p_breed = seq(leslie_boundary_range_p_breed[1], leslie_boundary_range_p_breed[2], length.out = leslie_boundary_grid_resolution),
+    litter  = seq(leslie_boundary_range_litter[1], leslie_boundary_range_litter[2], length.out = leslie_boundary_grid_resolution)
+  ) %>%
+    mutate(
+      lambda = mapply(boundary_lambda_of, s_juv, s_adult, p_breed, litter),
+      band = cut(lambda, breaks = c(-Inf, 1.20, 1.24, Inf), labels = c("< 1.20", "1.20-1.24", ">= 1.24"), right = FALSE)
+    )
+  leslie_boundary_band_shares <- boundary_full_grid %>% count(band) %>% mutate(pct = 100 * n / sum(n))
+  leslie_boundary_pct_below_baseline <- 100 * mean(boundary_full_grid$lambda < lambda_leslie_validated)
+
+  surface_grid_boundary <- tidyr::expand_grid(
+    s_adult = seq(leslie_boundary_range_s_adult[1], leslie_boundary_range_s_adult[2], length.out = 80),
+    litter  = seq(leslie_boundary_range_litter[1], leslie_boundary_range_litter[2], length.out = 80),
+    scenario = c("Baseline S_juv & breeding fraction", "Favourable S_juv & breeding fraction")
+  ) %>%
+    mutate(
+      s_juv_use   = ifelse(scenario == "Baseline S_juv & breeding fraction", leslie_s_juv, leslie_boundary_range_s_juv[2]),
+      p_breed_use = ifelse(scenario == "Baseline S_juv & breeding fraction", leslie_p_breed, leslie_boundary_range_p_breed[2]),
+      lambda = mapply(boundary_lambda_of, s_juv_use, s_adult, p_breed_use, litter)
+    )
+  boundary_baseline_point <- tibble::tibble(s_adult = leslie_s_adult_f, litter = leslie_litter,
+                                             scenario = "Baseline S_juv & breeding fraction")
+
+  fig_leslie_boundary_surface <- file.path(fig_dir, "leslie_boundary_surface.png")
+  ggsave(fig_leslie_boundary_surface, width = 10, height = 4.8, dpi = 150, plot = {
+    ggplot(surface_grid_boundary, aes(x = s_adult, y = litter, z = lambda)) +
+      geom_raster(aes(fill = lambda)) +
+      geom_contour(breaks = lambda_max_benchmarks, aes(colour = after_stat(factor(level))), linewidth = 0.8) +
+      scale_colour_manual(name = "lambda contour", values = benchmark_colours) +
+      scale_fill_viridis_c(option = "D", name = "lambda") +
+      geom_point(data = boundary_baseline_point, aes(x = s_adult, y = litter), inherit.aes = FALSE,
+                 colour = "red", size = 2.5, shape = 17) +
+      facet_wrap(~scenario) +
+      labs(
+        x = "Adult female survival", y = "Litter size",
+        title = "Where would adult survival and litter size need to sit to reach the PBR benchmarks?",
+        subtitle = paste0(
+          "Red triangle: Safi's empirical baseline (S_adult=", leslie_s_adult_f, ", litter=", leslie_litter,
+          "); contours: PBR benchmarks ", paste(lambda_max_benchmarks, collapse = " (cyan) / "), " (green)"
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 8), strip.text = element_text(face = "bold"))
+  })
+
   ## ---- 5. Assemble report params -----------------------------------------
   list(
     project_ref = project_ref,
@@ -593,6 +698,14 @@ run_pbr_analysis <- function(fig_dir) {
     quasi_ext_threshold = quasi_ext_threshold,
     pva_risk_summary = pva_risk_summary,
     fig_pva_projection = fig_pva_projection,
-    comparison_summary = comparison_summary
+    comparison_summary = comparison_summary,
+    leslie_breakeven_tbl = leslie_breakeven_tbl,
+    leslie_boundary_band_shares = leslie_boundary_band_shares,
+    leslie_boundary_pct_below_baseline = leslie_boundary_pct_below_baseline,
+    leslie_boundary_range_s_adult = leslie_boundary_range_s_adult,
+    leslie_boundary_range_s_juv = leslie_boundary_range_s_juv,
+    leslie_boundary_range_p_breed = leslie_boundary_range_p_breed,
+    leslie_boundary_range_litter = leslie_boundary_range_litter,
+    fig_leslie_boundary_surface = fig_leslie_boundary_surface
   )
 }

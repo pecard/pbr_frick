@@ -106,3 +106,20 @@ pva_vital_rate_cv <- 0.10   # working assumption -- no inter-annual
                             # variance estimate for V. murinus was found
 pva_seed <- 42
 pva_quasi_extinction_fraction <- 0.10  # of N0, a common PVA convention
+
+## Inverse demographic boundary analysis ("stress test"): plausible ranges
+## for the validated Leslie matrix's four vital rates, used to find which
+## combinations reach the PBR benchmarks (1.20/1.24) and how they compare
+## with Safi's (2006) empirical baseline. S_adult reuses s_range (same
+## range used throughout the PBR/Niel-Lebreton analysis, for direct
+## comparability). S_juv, p_breed and litter have no second
+## species-specific estimate located this session; their ranges are
+## plausibility bounds -- not literature point estimates -- documented in
+## references/leslie_matrix_parametrisation.md. p_breed is capped below 1
+## (a proportion); litter's upper bound is Zhigalin & Moskvitina's (2017)
+## urban-colony estimate (2.7-2.9), the higher of the two figures reported.
+leslie_boundary_range_s_adult <- s_range
+leslie_boundary_range_s_juv   <- c(0.40, 0.80)
+leslie_boundary_range_p_breed <- c(0.70, 0.98)
+leslie_boundary_range_litter  <- c(1.3, 2.9)
+leslie_boundary_grid_resolution <- 12  # per dimension, full 4-way factorial

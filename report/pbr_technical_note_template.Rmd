@@ -52,6 +52,14 @@ params:
   pva_risk_summary: !r NULL
   fig_pva_projection: ""
   comparison_summary: !r NULL
+  leslie_breakeven_tbl: !r NULL
+  leslie_boundary_band_shares: !r NULL
+  leslie_boundary_pct_below_baseline: !r NULL
+  leslie_boundary_range_s_adult: !r NULL
+  leslie_boundary_range_s_juv: !r NULL
+  leslie_boundary_range_p_breed: !r NULL
+  leslie_boundary_range_litter: !r NULL
+  fig_leslie_boundary_surface: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -72,6 +80,7 @@ Document history / List of changes.
 | Version 1 | First draft | 2026-05-07 | Paulo Cardoso |
 | Version 2 | Corrected recovery factor (Fr); reverse-engineered and plausibility-checked the local population estimate (Nmin); updated age-at-first-breeding range from a literature review; rebuilt the sensitivity, response-surface and Monte Carlo analyses on consistent, reproducible parameter ranges | 2026-09 | Paulo Cardoso |
 | Version 3 | Added a Leslie-matrix cross-check (validated against the published Dekker & Limpens 2024 model) and a 25-year stochastic PVA-lite projection, with a summary comparison against the PBR/Niel-Lebreton approach | 2026-09 | Paulo Cardoso |
+| Version 4 | Added an inverse demographic boundary analysis on the validated Leslie matrix, and a discussion of Nmin as a source of uncertainty, including Frick et al.'s own definition of local population size and its stated limitation for cumulative impacts across nearby facilities | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -540,6 +549,116 @@ optimistic end of what the available evidence supports than to its
 centre, across every method tried, reinforcing the case for treating them
 as a band under adaptive management rather than as a precise, fixed limit.
 
+## Inverse demographic boundary analysis
+
+The Leslie matrix cross-check above shows that Safi's (2006) empirical
+vital rates for *`r params$species_name`* produce
+$\lambda \approx$ `r round(params$lambda_leslie_validated, 3)`, below the
+PBR benchmarks. This $\lambda$ is calculated from observed, average-year
+vital rates ($\lambda_{observed}$), which is conceptually distinct from
+$\lambda_{max}$, the PBR framework's theoretical ceiling under favourable,
+non-resource-limited conditions. Falling short of the benchmarks at Safi's
+own values therefore does not by itself show that $\lambda_{max} =$
+1.20-1.24 is biologically unreachable for this species; what it can show is
+which combinations of vital rates the validated structure would need in
+order to reach those benchmarks, and how favourable those combinations
+would be relative to the empirical baseline.
+
+Holding three of the validated structure's four vital rates (adult female
+survival, juvenile survival, breeding fraction, litter size) at Safi's
+baseline and solving for the value the fourth would need to reach each PBR
+benchmark gives:
+
+```{r leslie-breakeven-table}
+knitr::kable(
+  params$leslie_breakeven_tbl, digits = c(0, 2, 2, 2, 2, 0, 0),
+  col.names = c("Vital rate", "lambda target", "Safi baseline", "Required value",
+                "Plausible upper bound", "% of plausible range", "Within plausible range?"),
+  caption = "Value each vital rate would need to reach on its own, holding the other three at Safi's baseline, to reach each PBR benchmark. 'NA' marks a target unreachable even at the vital rate's own plausible ceiling."
+)
+```
+
+No single vital rate reaches $\lambda = 1.20$ within its own plausible
+range while the other three stay at Safi's baseline: adult female survival
+would need to approach its own upper bound almost exactly; juvenile
+survival and litter size would both need to exceed their plausible upper
+bounds; and the breeding fraction cannot reach $\lambda = 1.20$ at all,
+even at 100% of adult females breeding, reflecting its comparatively low
+leverage on $\lambda$ in this structure.
+
+Allowing all four vital rates to vary jointly and independently across
+their plausible ranges (a `r format(params$leslie_boundary_range_s_adult[1], nsmall=2)`-`r format(params$leslie_boundary_range_s_adult[2], nsmall=2)`
+adult survival range, `r params$leslie_boundary_range_s_juv[1]`-`r params$leslie_boundary_range_s_juv[2]`
+for juvenile survival, `r params$leslie_boundary_range_p_breed[1]`-`r params$leslie_boundary_range_p_breed[2]`
+for breeding fraction and `r params$leslie_boundary_range_litter[1]`-`r params$leslie_boundary_range_litter[2]`
+for litter size; n_stages fixed at 2, the validated structure), only
+`r round(params$leslie_boundary_band_shares$pct[params$leslie_boundary_band_shares$band == "1.20-1.24"] + params$leslie_boundary_band_shares$pct[params$leslie_boundary_band_shares$band == ">= 1.24"], 1)`%
+of that joint plausible space reaches $\lambda \geq 1.20$, of which
+`r round(params$leslie_boundary_band_shares$pct[params$leslie_boundary_band_shares$band == ">= 1.24"], 1)`%
+reaches $\lambda \geq 1.24$. Safi's own empirical baseline exceeds
+`r round(params$leslie_boundary_pct_below_baseline, 1)`% of this same joint
+plausible-space grid.
+
+```{r fig-leslie-boundary-surface}
+knitr::include_graphics(params$fig_leslie_boundary_surface)
+```
+
+Reaching the PBR benchmarks under the validated demographic structure
+therefore requires either a single vital rate pushed to, or beyond, the top
+of its plausible range, or several vital rates favourable at the same
+time. This characterises how favourable the demographic profile would need
+to be relative to what has been measured for this species; it does not, on
+its own, establish that $\lambda_{max} = 1.20$-$1.24$ is unreachable as a
+theoretical ceiling, since $\lambda_{max}$ and $\lambda_{observed}$ answer
+different questions.
+
+## Population size (Nmin): a second, largely separate source of uncertainty
+
+The demographic ceiling ($\lambda_{max}$) explored above and the local
+population size ($N_{min}$) it is multiplied by are two separate
+components of the PBR equation, carrying separate uncertainties. The
+boundary analysis above holds regardless of $N_{min}$, since it concerns a
+growth rate, not an abundance; $N_{min}$, in contrast, enters
+$PBR = \frac{1}{2}(\lambda_{max}-1) \times F_r \times N_{min}$ linearly, so
+any uncertainty in $N_{min}$ carries through to PBR at the same proportion.
+
+No independent population estimate exists for `r params$species_common_name`
+in this region, only the assumption reverse-engineered earlier in this note
+($N_{min} \approx$ `r format(params$nmin_assumed, big.mark = ",")`,
+Reverse-engineering the imposed thresholds). Frick et al. (2026) define
+$N_{min}$ explicitly at the scale of an individual facility's own local
+population, not at the scale of the species' full range or of a
+migratory/regional population: "While standard PBR should be applied at
+the scale of an entire population, there are no regulatory mechanisms to
+report or respond at that scale. Therefore, fatality thresholds need to be
+set on a per-project basis." Their own $N_{min}$ calculation follows the
+same logic: "We estimate $N_U$ and $N_L$ for local populations using proxy
+bat density estimates applied at a spatial scale relevant to a wind energy
+facility," via $N_{local} = \text{Project area (km}^2\text{)} \times 2
+\times \text{density estimate}$ -- the same formula this note's own
+plausibility check (Reverse-engineering the imposed thresholds) already
+applies at each facility's own footprint.
+
+Frick et al. (2026) explicitly flag this project-level scope as a
+limitation of their own framework: "we recognize that our approach does
+not fully address cumulative impacts at range-wide scales and that future
+efforts to devise monitoring and regulatory mechanisms beyond
+project-level mitigation are warranted." This caveat is directly relevant
+to a regional cluster of nearby facilities such as `r params$project_ref`
+(`r params$interproject_distance_km` km apart): if the species' regional
+movements link the areas around both facilities, each facility's own
+$N_{min}$ and PBR budget, calculated independently as above, would not
+capture fatalities occurring at both facilities drawing on the same
+underlying population. This note does not attempt to define or quantify an
+alternative, regional-population $N_{min}$ in place of the project-level
+estimate used throughout -- Frick et al.'s own method provides no basis for
+doing so, and no independent population or movement data exist for this
+species in this region to constrain such an estimate. The point is
+recorded here as a documented, author-acknowledged limitation of the PBR
+framework as published, to be weighed alongside the demographic
+uncertainty above when the imposed thresholds are discussed with lenders
+and other stakeholders.
+
 ## Preliminary interpretation and implications
 
 Under a defensible, non-optimistic parametrisation -- recovery factor
@@ -565,6 +684,7 @@ additionally consider:
 - the conservation relevance and demographic sensitivity of the affected species;
 - the spatial concentration and recurrence of fatalities;
 - the expected effectiveness and proportionality of mitigation measures;
+- whether nearby facilities may draw on a shared regional or migratory population, given the PBR framework's own acknowledged limitation for cumulative, range-wide impacts;
 - and the broader adaptive-management context in which the threshold is applied.
 
 Presenting PBR as a range rather than a single fixed number provides a
