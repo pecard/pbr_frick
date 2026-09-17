@@ -18,6 +18,8 @@
 
 pbr_settings_file <- "pbrSettings_BSH_DGY.R"
 output_file        <- "outputs/pbr_frick_technical_note_BSH_DGY.docx"
+lender_output_file <- "outputs/pbr_lender_summary_BSH_DGY.docx"
+lender_template     <- "report/pbr_lender_summary_template.Rmd"
 
 source("R/pbr_analysis.R")
 source("R/adaptive_management_analysis.R")
@@ -84,5 +86,12 @@ report_params <- c(
 build_pbr_report(
   output_file    = output_file,
   report_params  = report_params,
+  reference_docx = reference_docx_path
+)
+
+build_pbr_report(
+  output_file    = lender_output_file,
+  report_params  = report_params,
+  template       = lender_template,
   reference_docx = reference_docx_path
 )

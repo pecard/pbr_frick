@@ -1,0 +1,278 @@
+---
+title: "Bat Mortality Mitigation -- 2026 Emergency Response and 2027 Outlook (`r params$project_ref`)"
+output:
+  word_document:
+    toc: false
+params:
+  project_ref: ""
+  species_name: ""
+  species_common_name: ""
+  thresholds: !r NULL
+  fr_original: !r NULL
+  fr_corrected: !r NULL
+  iucn_status_original_guess: ""
+  iucn_status_corrected: ""
+  backsolve_grid: !r NULL
+  nmin_assumed: !r NULL
+  project_footprint_km2: !r NULL
+  combined_region_km2: !r NULL
+  interproject_distance_km: !r NULL
+  nmin_plausibility: !r NULL
+  density_proxy_low: !r NULL
+  density_proxy_high: !r NULL
+  pbr_corrected_fr: !r NULL
+  s_range: !r NULL
+  alpha_range: !r NULL
+  alpha_range_prior: !r NULL
+  elasticity_ranges: !r NULL
+  fig_lambda_max: ""
+  fig_elasticity_survival: ""
+  fig_elasticity_alpha: ""
+  fig_response_surfaces: ""
+  fig_response_surfaces_3d: !r NULL
+  fig_response_surfaces_3d_html: !r NULL
+  fig_pbr_density: ""
+  n_sim: !r NULL
+  pbr_quantiles: !r NULL
+  threshold_percentiles: !r NULL
+  alpha_range_comparison: !r NULL
+  leslie_s_juv: !r NULL
+  leslie_s_adult_f: !r NULL
+  leslie_s_adult_m: !r NULL
+  leslie_p_breed: !r NULL
+  leslie_litter: !r NULL
+  leslie_F: !r NULL
+  lambda_leslie_validated: !r NULL
+  leslie_vs_pbr: !r NULL
+  fig_leslie_maturation: ""
+  n0_total: !r NULL
+  pva_n_years: !r NULL
+  pva_n_reps: !r NULL
+  pva_vital_rate_cv: !r NULL
+  quasi_ext_threshold: !r NULL
+  pva_risk_summary: !r NULL
+  fig_pva_projection: ""
+  comparison_summary: !r NULL
+  leslie_breakeven_tbl: !r NULL
+  leslie_boundary_band_shares: !r NULL
+  leslie_boundary_pct_below_baseline: !r NULL
+  leslie_boundary_range_s_adult: !r NULL
+  leslie_boundary_range_s_juv: !r NULL
+  leslie_boundary_range_p_breed: !r NULL
+  leslie_boundary_range_litter: !r NULL
+  fig_leslie_boundary_surface: ""
+  nmin_vs_lambda_sensitivity: !r NULL
+  fig_nmin_lambda_surface: ""
+  real_correction_factor_by_project: !r NULL
+  real_curtailment_start: ""
+  real_curtailment_week: !r NULL
+  real_checkpoint_week: !r NULL
+  real_overage_summary: !r NULL
+  real_yoy_summary: !r NULL
+  real_forecast_summary: !r NULL
+  real_n_turbines_by_project: !r NULL
+  real_turbine_hist: !r NULL
+  fig_real_dashboard: ""
+  fig_real_turbine_pareto: ""
+  turbine_validation_correction_ratio_range: !r NULL
+  turbine_validation_correction_ratio_median: !r NULL
+  turbine_validation_correction_ratio_by_project: !r NULL
+  fig_turbine_validation: ""
+  turbine_validation_bash_window: ""
+  turbine_validation_dzh_window: ""
+  turbine_validation_bash_data_start: ""
+  turbine_validation_dzh_data_start: ""
+  turbine_validation_comparison: !r NULL
+  turbine_validation_overlap: !r NULL
+  turbine_validation_correction_check: !r NULL
+  curtailment_year_data_max_date: ""
+  curtailment_year_checkpoint_week: !r NULL
+  curtailment_year_reduction_so_far: !r NULL
+  curtailment_year_full_counterfactual: !r NULL
+  fig_curtailment_year: ""
+  global_nmin_area_km2: !r NULL
+  global_density_low: !r NULL
+  global_density_high: !r NULL
+  global_pbr_quantiles_by_project: !r NULL
+  global_pbr_old_new_comparison: !r NULL
+  fig_global_pbr_uncertainty: ""
+  candidate_pbr_table: !r NULL
+  candidate_pbr_effectiveness: !r NULL
+  fig_candidate_pbr: ""
+  turbine_2027_classification: !r NULL
+  turbine_2027_flagged_display: !r NULL
+  turbine_2027_summary_by_project: !r NULL
+  turbine_2027_core_residual_summary: !r NULL
+  turbine_2027_expansion_fraction: !r NULL
+  turbine_2027_watchlist_n: !r NULL
+  turbine_2027_candidates_project1: !r NULL
+  turbine_2027_candidates_project2: !r NULL
+  turbine_2027_core_residual_project1: !r NULL
+  turbine_2027_core_residual_project2: !r NULL
+  turbine_2027_weak_pct_project1: !r NULL
+  turbine_2027_weak_pct_project2: !r NULL
+  fig_turbine_2027_classification: ""
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+options(knitr.graphics.rel_path = FALSE)
+proj1 <- params$real_overage_summary$project[1]
+proj2 <- params$real_overage_summary$project[2]
+```
+
+This summary draws entirely on the analysis and figures already
+presented in the full technical note (*PBR Interpretation based on Frick
+et al. 2026*, `r params$project_ref`); nothing here is computed
+separately. It is written for a lender audience and focuses on two
+questions: how effective has the 2026 emergency curtailment response
+been, and what should change for 2027.
+
+# Summary
+
+The 2026 blanket curtailment at `r params$project_ref` was introduced as
+an emergency measure after mortality had already exceeded the annual
+PBR-derived reference for the year. It should therefore not be judged by
+whether the 2026 annual reference was ultimately exceeded -- it was
+always going to be, given how much mortality had already accumulated
+before the response began. Its relevant performance period starts on
+`r params$real_curtailment_start`.
+
+Measured against the only complete untreated reference year available
+(2025), mortality after implementation was substantially lower,
+particularly at `r proj1`
+(`r round(abs(params$curtailment_year_reduction_so_far$pct_reduction[1]))`%
+below the 2025-based no-curtailment reference, versus
+`r round(abs(params$curtailment_year_reduction_so_far$pct_reduction[2]))`%
+at `r proj2`). This provides operational evidence that the emergency
+response has restrained mortality. Because turbines were curtailed
+precisely because of their high historical mortality, rather than
+assigned independently of it, and only one complete untreated reference
+year exists, the reduction should be read as operational effectiveness
+against an explicit historical counterfactual -- not as a formal causal
+estimate of curtailment's efficacy.
+
+For 2027, the objective should shift from emergency reduction to
+prospective mortality budgeting. That means: retain 2025 as the
+untreated risk reference; maintain the core of turbines already shown to
+carry high untreated risk; add turbines where 2026 provides recurrent,
+untreated-risk evidence; and relax any existing prescription only
+through a conservative, evidence-based process -- never simply because a
+turbine's mortality was low while it was already being curtailed.
+
+# 2026: two different questions
+
+Two figures for 2026 can look inconsistent side by side unless the
+underlying questions are kept separate.
+
+**Annual mortality position.** Through
+`r params$curtailment_year_data_max_date`, corrected mortality stands at
+`r round(params$real_overage_summary$pct_of_threshold[1])`% of the
+annual reference at `r proj1` and
+`r round(params$real_overage_summary$pct_of_threshold[2])`% at `r proj2`
+-- both well above 100%. This figure includes the substantial mortality
+that accumulated in the months before curtailment began, when no
+mitigation was in place; it describes the year's overall position
+against the annual reference, not the performance of the emergency
+response itself.
+
+```{r overage-table}
+knitr::kable(
+  params$real_overage_summary %>%
+    dplyr::select(project, threshold, corrected, pct_of_threshold),
+  digits = c(0, 0, 0, 0),
+  col.names = c("Project", "Annual reference", "2026 corrected mortality to date", "% of annual reference"),
+  caption = paste0("2026 year-to-date mortality against the annual reference, through ", params$curtailment_year_data_max_date, ".")
+)
+```
+
+**Emergency response effectiveness.** From
+`r params$real_curtailment_start` onward, observed mortality is compared
+against what the 2025 pattern would imply for the same weeks, had
+curtailment never been introduced. This is the right basis for judging
+the intervention itself.
+
+```{r fig-curtailment-year-lender}
+knitr::include_graphics(params$fig_curtailment_year)
+```
+
+```{r reduction-table}
+knitr::kable(
+  params$curtailment_year_reduction_so_far %>%
+    dplyr::select(project, actual_corrected_total, counterfactual_corrected_total, avoided_fatalities, pct_reduction),
+  digits = c(0, 0, 0, 0, 0),
+  col.names = c("Project", "Observed (with curtailment)", "2025-based counterfactual (no curtailment)", "Fatalities avoided", "% reduction"),
+  caption = paste0("Emergency response effectiveness, ", params$real_curtailment_start, " to ",
+                    params$curtailment_year_data_max_date, ".")
+)
+```
+
+Read together, these two comparisons are consistent, not contradictory:
+the annual reference was already unattainable before the response began,
+while the response itself, measured on its own period, shows a
+substantial reduction at `r proj1` and a more moderate one at `r proj2`.
+
+# 2027: from emergency response to prospective planning
+
+The turbines curtailed in 2026 were chosen under a separate,
+lender-agreed procedure that ranked turbines by estimated mortality over
+the 2025 baseline season and selected up to 50% of that season's
+cumulative mortality: 17 turbines at `r proj1`, 7 at `r proj2`. For 2027,
+the same untreated 2025 evidence
+remains the risk baseline, and 2026 is used only to corroborate
+candidates for expansion -- never to justify removing a turbine already
+curtailed, since low mortality at an already-curtailed turbine is
+consistent with the intervention working, not with the turbine being
+low-risk.
+
+```{r fig-turbine-2027-lender}
+knitr::include_graphics(params$fig_turbine_2027_classification)
+```
+
+```{r turbine-2027-summary-lender}
+knitr::kable(
+  params$turbine_2027_summary_by_project,
+  digits = 0,
+  col.names = c("Project", "Core (curtailed)", "Expansion candidates", "Not flagged"),
+  caption = "2027 turbine classification, summary by project."
+)
+```
+
+`r proj1` has two turbines (identified, not yet added) with mortality
+comparable to turbines already selected in 2025, and confirmed *V.
+murinus* records since curtailment began -- corroborated evidence in
+both years independently, and the strongest basis available for adding
+them to the 2027 prescription. `r proj2` has no turbine meeting that
+bar on current evidence; this is reported as a genuine finding, not
+adjusted for symmetry between the two projects. At both projects, a
+minority of already-curtailed turbines still show at least one recorded
+fatality since curtailment began (`r params$turbine_2027_core_residual_project1`
+of 17 at `r proj1`, `r params$turbine_2027_core_residual_project2` of 7
+at `r proj2`) -- evidence to consider intensifying mitigation there, not
+evidence that curtailment failed.
+
+# Recommended path forward for 2027
+
+- Retain 2025 as the untreated risk reference; do not average or pool it
+  with 2026, which would mix the reference with the effect being
+  measured.
+- Maintain the current core of curtailed turbines; treat any residual
+  2026 fatalities among them as a signal to review intensification, not
+  as grounds for relaxation.
+- Add turbines where 2025 and 2026 evidence corroborate each other
+  independently, as identified above.
+- Relax any existing prescription only through a conservative,
+  hysteresis-based process -- sustained evidence of low underlying risk
+  over more than one assessment, with a predefined reinstatement
+  trigger -- never on a single low-mortality season under treatment.
+- Continue monitoring through the remainder of 2026 and into 2027 to
+  extend the post-treatment record this assessment is based on; both the
+  effectiveness comparison and the turbine classification above should
+  be refreshed as further data accumulate.
+
+This assessment does not propose any change to the imposed annual
+thresholds (`r paste(sprintf("%s bats/year at %s", params$thresholds$threshold, params$thresholds$facility), collapse = "; ")`),
+which remain the operative reference throughout. The full technical note
+separately explores the demographic uncertainty underlying those
+thresholds as background context; that discussion is not part of the
+2027 operational recommendation above.
