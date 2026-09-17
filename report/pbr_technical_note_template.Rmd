@@ -1021,6 +1021,18 @@ from a more spatially concentrated site would suggest, and
 broader-coverage curtailment, informed by this ranking, is likely to be
 necessary rather than optional.
 
+The turbine counts here are not directly comparable to the "68 assessed"
+/ "27 assessed" figures in the next section: this figure pools every
+turbine with at least one recorded *V. murinus* carcass across a longer
+window (all of 2025 plus 2026 pre-curtailment), whereas the official
+selection universe below is fixed to the single baseline season the
+lender-agreed methodology used (April-August 2025 at
+`r params$real_n_turbines_by_project$project[1]`, March-August 2025 at
+`r params$real_n_turbines_by_project$project[2]`). The longer window here
+is a strict superset of the official one -- every officially-assessed
+turbine appears in it, plus a handful more that only recorded a carcass
+outside that narrower season.
+
 ## Turbine-level retrospective validation
 
 The turbines actually curtailed since 5 May 2026 were not selected by this

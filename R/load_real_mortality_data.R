@@ -65,10 +65,32 @@ load_real_mortality_data <- function(bash_path = "data-raw/BashWPP_Weekly_PCFM_P
       )
   }
 
-  bind_rows(
+  d <- bind_rows(
     read_project(bash_path, "Species_name", facility_labels[1]),
     read_project(djangeldy_path, "Species_name (lat.)", facility_labels[2])
-  ) %>%
+  )
+
+  ## Data-quality guard: a Date_found in the future is impossible -- a
+  ## carcass cannot be found before it happens. Caught in practice
+  ## (2026-09): two Bash rows dated 25/27 September 2026 whose own ISO
+  ## week column read 35 (~24-30 August), i.e. a month-digit typo in the
+  ## source workbook (08 entered as 09), silently pulling the pipeline's
+  ## "current" checkpoint 2-3 weeks into the future. Excluded here with a
+  ## loud warning rather than guessed-and-corrected, since only Paulo can
+  ## fix the source row; re-run after he does to pick the record back up
+  ## with its real date.
+  future_records <- d %>% filter(date > Sys.Date())
+  if (nrow(future_records) > 0) {
+    warning(
+      "Excluded ", nrow(future_records), " record(s) with Date_found in the future (impossible -- ",
+      "likely a data-entry typo in the source workbook): ",
+      paste(sprintf("%s/%s/%s", future_records$project, future_records$turbine, future_records$date), collapse = "; "),
+      ". Fix the source row(s) and re-run to include the real record."
+    )
+    d <- d %>% filter(date <= Sys.Date())
+  }
+
+  d %>%
     mutate(
       period = case_when(
         year < 2026 ~ "2025 (pre-curtailment baseline)",
