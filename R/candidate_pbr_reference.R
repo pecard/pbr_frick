@@ -24,8 +24,8 @@
 ##     counterfactual annual total (R/curtailment_year_effectiveness.R),
 ##     the reduction required to sit at that level, and how many turbines
 ##     (ranked by pre-curtailment historical contribution, same ranking as
-##     Section 7.2) a uniform 70% curtailment-effectiveness assumption
-##     would need to cover to deliver it.
+##     Section 7.2) a uniform 63% curtailment-effectiveness assumption
+##     (Adams, Gulka & Williams 2021) would need to cover to deliver it.
 ##
 ## All five rows per project use the SAME methodology (including the
 ## "current threshold" row), so they are directly comparable to each
