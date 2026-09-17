@@ -144,6 +144,7 @@ Document history / List of changes.
 | Version 13 | Replaced the flat 4x GenEst working correction factor with project-specific factors (4.64x at Project 1, 6.21x at Project 2), the aggregate mortality-weighted ratio between each project's real GenEst-estimated mortality and matching raw carcass count, validated turbine-by-turbine in "Turbine-level retrospective validation"; a single shared factor understated Project 2's true corrected mortality by roughly a third. Propagates through every corrected-mortality figure in Section 7 (year-to-date totals, year-over-year comparison, turbine concentration, operational-year effectiveness); also added an explanatory paragraph on how to read the turbine-validation rank scatter plot | 2026-09 | Paulo Cardoso |
 | Version 14 | Reorganised Section 7 around an explicit three-year chronology (2025 = untreated reference, 2026 = emergency response, 2027 = adaptive management): renamed "2026 annual mortality status" and "Emergency response effectiveness" and made explicit, at the start of each, that they answer different questions -- the annual position (which includes pre-curtailment months) versus the intervention's own performance since 5 May -- resolving the apparent inconsistency between the -59%/-5% and -88%/-53% comparisons; added a note distinguishing absolute corrected totals (more uncertain) from relative year-over-year comparisons (more robust to the correction factor, since it cancels in the ratio); corrected two sentences that implied a second untreated baseline year exists or is attainable while curtailment continues; added Section 7.6, "2027 turbine classification": an explicit evidence hierarchy (Core/Expansion candidates/Review-watch-list) that keeps 2025 as the risk baseline, uses 2026 only to corroborate expansion candidates, and never reads low 2026 mortality at an already-curtailed turbine as grounds to remove it | 2026-09 | Paulo Cardoso |
 | Version 15 | Fixed a locale-dependent date-formatting bug: every formatted date shown in the report (curtailment start date, data checkpoint dates, turbine-validation season windows) used R's `%B` month-name format, which renders in whatever locale the rendering machine is set to -- correct in English here, but rendered in Portuguese on a Portuguese-locale machine. Replaced with an explicit English month-name lookup, independent of the rendering machine's locale | 2026-09 | Paulo Cardoso |
+| Version 16 | Removed stray all-caps emphasis (OWN, BECAUSE, NOT, ACROSS, CANDIDATES, RANK ORDER, WERE) in Sections 7.3, 7.4, 7.5, 7.5.2 and 7.7, left over from drafting and not acronyms -- corrected to normal sentence case throughout | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -1146,7 +1147,7 @@ would have reproduced that selection, applied to the same baseline season
 and the same 50%-cumulative rule. (Those working factors are themselves
 the outcome of this comparison, computed once at the aggregate,
 project level and reused throughout this note -- see below; because they
-are a single scalar per project, they do not change turbine RANK ORDER
+are a single scalar per project, they do not change turbine rank order
 within a project, so this remains an independent test of which turbines
 get selected, not a circular one.) Two
 data-coverage caveats apply to this replication and are not smoothed over:
@@ -1173,7 +1174,7 @@ knitr::include_graphics(params$fig_turbine_validation)
 
 Each point is one turbine, plotted by its rank under each method (rank 1
 = highest estimated mortality); a point sitting on the dotted diagonal is
-ranked identically by both. The dashed lines are each method's OWN
+ranked identically by both. The dashed lines are each method's own
 50%-cumulative-mortality cutoff, not a shared value -- the vertical line
 marks where the official ranking stops selecting (turbine 17 at
 `r params$real_overage_summary$project[1]`, 7 at
@@ -1319,7 +1320,7 @@ These reductions provide operational evidence consistent with a
 substantial mitigation effect, particularly at
 `r params$curtailment_year_reduction_so_far$project[1]`. Because the
 intervention was not randomised -- turbines were deliberately curtailed
-BECAUSE of their high historical mortality, not assigned independently
+because of their high historical mortality, not assigned independently
 of it -- and only one complete untreated reference year is available,
 the comparison should not be interpreted as a formal causal estimate of
 curtailment efficacy. *Operational effectiveness against an explicit
@@ -1363,7 +1364,7 @@ in $s$ and $\alpha$ only, at a single, project-shared Nmin held fixed at
 working value from "Reverse-engineering the imposed thresholds"). This
 section closes that gap and connects the result to the operational
 turbine-level and mortality-budgeting evidence already built in this
-part of the note. Two things this section is explicitly NOT: a proposal
+part of the note. Two things this section is explicitly not: a proposal
 to change the imposed annual thresholds, and a claim that a wider
 plausible PBR range makes 112/88 "wrong". It is a decision-support
 comparison, matching the same caution this note has applied throughout
@@ -1477,7 +1478,7 @@ precisely the reason the Nmin axis, not $\lambda_{max}$, is the
 question that would need to be resolved before any such move could be
 considered.
 
-The turbine counts in this table are a like-for-like comparison ACROSS
+The turbine counts in this table are a like-for-like comparison across
 candidate levels under one uniform assumption, not a substitute for the
 turbines actually selected and curtailed. At the current threshold, they
 are noticeably larger than the real, already-executed selection
@@ -1506,7 +1507,7 @@ principle" -- this section answers "which ones, and on what evidence."
 It replaces a single re-ranked "top N" list with an explicit evidence
 hierarchy that keeps 2025 as the risk baseline throughout: the current
 17/7 turbines retain their evidential weight because they were selected
-from untreated mortality; 2026 is used only to corroborate CANDIDATES
+from untreated mortality; 2026 is used only to corroborate candidates
 for expansion (never to justify removing a turbine already curtailed --
 low mortality at an already-curtailed turbine is consistent with the
 intervention working, not with the turbine being low-risk); and any
@@ -1520,10 +1521,10 @@ Three groups result. **Core (curtailed)**: the real, already-selected
 turbines, split by whether they show any *V. murinus* record since 5 May
 2026 -- a residual fatality there is read as evidence to monitor or
 consider intensifying, never as evidence the turbine no longer needs
-mitigation. **Expansion candidates**: turbines NOT currently curtailed
+mitigation. **Expansion candidates**: turbines not currently curtailed
 but corroborated independently by both years -- 2025 estimated mortality
 at least half of the lowest currently-curtailed turbine's (comparable to
-turbines that WERE selected, not merely "not zero"), and at least one
+turbines that were selected, not merely "not zero"), and at least one
 confirmed record after curtailment began in 2026 (genuine untreated
 recurrence, since these turbines were never curtailed, not noise from a
 single low-count turbine). **Review/watch-list**: the weakest-evidence
@@ -1557,7 +1558,7 @@ knitr::kable(
 `r proj1` shows the clearest case: two turbines (2025 ranks
 `r paste(params$turbine_2027_candidates_project1, collapse = " and ")`)
 sit close to the original selection boundary, had comparable 2025
-estimated mortality to turbines that WERE selected, and have already
+estimated mortality to turbines that were selected, and have already
 recorded *V. murinus* fatalities since curtailment began -- corroborated
 evidence in both years independently, the strongest basis this note has
 for recommending a turbine be added to the 2027 prescription.
@@ -1597,7 +1598,7 @@ forward-looking forecast and make it decision-useful in its own right,
 not just a secondary check on the year-over-year comparison. A
 difference-in-differences check of curtailment's causal effectiveness
 was deliberately not pursued for this version: curtailment was assigned
-to turbines BECAUSE of their high historical mortality rather than
+to turbines because of their high historical mortality rather than
 randomly, so curtailed and non-curtailed turbines are not exchangeable
 groups, and only one untreated reference year is available to check
 whether they were even on parallel trends beforehand -- a formal causal
