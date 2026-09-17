@@ -192,7 +192,7 @@ run_adaptive_management_real <- function(fig_dir,
     real_correction_factor_by_project = tibble::tibble(
       project = names(genest_correction_factor), factor = as.numeric(genest_correction_factor)
     ),
-    real_curtailment_start = format(curtailment_start_date, "%d %B %Y"),
+    real_curtailment_start = format_en_date(curtailment_start_date),
     real_curtailment_week = curtailment_week,
     real_checkpoint_week = checkpoint_week,
     real_overage_summary = overage_summary,

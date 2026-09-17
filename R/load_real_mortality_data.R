@@ -54,6 +54,18 @@ suppressPackageStartupMessages({ library(readxl); library(dplyr); library(lubrid
 genest_correction_factor <- c("Project 1" = 4.64, "Project 2" = 6.21)
 curtailment_start_date <- as.Date("2026-05-05")
 
+## format(date, "%B"/"%b") renders the month name in the R session's
+## LC_TIME locale -- fine in this sandbox (English/C), but Paulo's own
+## machine (Portuguese locale) renders "setembro" instead of "September"
+## when he re-runs the launcher locally. month.name/month.abb are fixed
+## English constants regardless of locale, so build "dd Month yyyy"
+## strings from those instead of %B/%b, everywhere a formatted date is
+## exposed in a report param, figure label or caption.
+format_en_date <- function(date, abbrev = FALSE) {
+  mon <- if (abbrev) month.abb[as.integer(format(date, "%m"))] else month.name[as.integer(format(date, "%m"))]
+  sprintf("%s %s %s", format(date, "%d"), mon, format(date, "%Y"))
+}
+
 load_real_mortality_data <- function(bash_path = "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx",
                                       djangeldy_path = "data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx") {
   if (!file.exists(bash_path)) {

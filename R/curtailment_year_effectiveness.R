@@ -113,12 +113,12 @@ run_curtailment_year_effectiveness <- function(fig_dir = "outputs/figures",
       scale_linetype_manual(name = NULL, values = c("Actual (2026, with curtailment)" = "solid",
                                                       "No-curtailment counterfactual (2025 pattern, +1 yr)" = "dashed")) +
       labs(
-        x = paste0("Week of the operational year (week 1 = ", format(curtailment_start_date, "%d %b %Y"), ")"),
+        x = paste0("Week of the operational year (week 1 = ", format_en_date(curtailment_start_date, abbrev = TRUE), ")"),
         y = "Cumulative corrected fatalities (V. murinus)",
         title = "Operational year (May 2026-May 2027): actual vs. a no-curtailment counterfactual",
         subtitle = paste0(
           "Dotted horizontal: annual threshold. Dotted vertical: last week with real 2026 data (through ",
-          format(data_max_date, "%d %b %Y"), ").\n",
+          format_en_date(data_max_date, abbrev = TRUE), ").\n",
           "Counterfactual: 2025's weekly pattern shifted one year forward -- what would have happened had curtailment never started."
         )
       ) +
@@ -128,7 +128,7 @@ run_curtailment_year_effectiveness <- function(fig_dir = "outputs/figures",
   })
 
   list(
-    curtailment_year_data_max_date = format(data_max_date, "%d %B %Y"),
+    curtailment_year_data_max_date = format_en_date(data_max_date),
     curtailment_year_checkpoint_week = checkpoint_op_week,
     curtailment_year_reduction_so_far = reduction_so_far,
     curtailment_year_full_counterfactual = full_year_counterfactual,
