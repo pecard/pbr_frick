@@ -99,6 +99,19 @@ params:
   candidate_pbr_table: !r NULL
   candidate_pbr_effectiveness: !r NULL
   fig_candidate_pbr: ""
+  turbine_2027_classification: !r NULL
+  turbine_2027_flagged_display: !r NULL
+  turbine_2027_summary_by_project: !r NULL
+  turbine_2027_core_residual_summary: !r NULL
+  turbine_2027_expansion_fraction: !r NULL
+  turbine_2027_watchlist_n: !r NULL
+  turbine_2027_candidates_project1: !r NULL
+  turbine_2027_candidates_project2: !r NULL
+  turbine_2027_core_residual_project1: !r NULL
+  turbine_2027_core_residual_project2: !r NULL
+  turbine_2027_weak_pct_project1: !r NULL
+  turbine_2027_weak_pct_project2: !r NULL
+  fig_turbine_2027_classification: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -129,6 +142,7 @@ Document history / List of changes.
 | Version 11 | Added two turbine- and season-level checks against real operational data: a retrospective validation of an independently-derived turbine selection against the actual, lender-agreed selection documented in the Blanket Curtailment Plan; and a full operational-year (May 2026-May 2027) comparison of actual, post-curtailment mortality against a no-curtailment counterfactual built from the prior year's pattern | 2026-09 | Paulo Cardoso |
 | Version 12 | Fixed a future-dated PCFM record (data-entry typo) that had pulled Section 7.4's checkpoint 2-3 weeks ahead of the real data; clarified why Section 7.2's turbine universe differs from the official selection's; added Section 7.5, "2027 mitigation frontier": extends the PBR Monte Carlo with project-specific Nmin uncertainty (in place of the fixed reverse-engineered value used elsewhere), then compares the current thresholds against Q05/Q25/median/Q75 of the resulting distribution on identical terms -- PVA-lite risk, mortality-budgeting reduction required, and turbines needed under a literature-benchmarked curtailment-effectiveness assumption (Adams, Gulka & Williams 2021) -- as decision-support for the 2027 season, not a proposal to change the imposed thresholds | 2026-09 | Paulo Cardoso |
 | Version 13 | Replaced the flat 4x GenEst working correction factor with project-specific factors (4.64x at Project 1, 6.21x at Project 2), the aggregate mortality-weighted ratio between each project's real GenEst-estimated mortality and matching raw carcass count, validated turbine-by-turbine in "Turbine-level retrospective validation"; a single shared factor understated Project 2's true corrected mortality by roughly a third. Propagates through every corrected-mortality figure in Section 7 (year-to-date totals, year-over-year comparison, turbine concentration, operational-year effectiveness); also added an explanatory paragraph on how to read the turbine-validation rank scatter plot | 2026-09 | Paulo Cardoso |
+| Version 14 | Reorganised Section 7 around an explicit three-year chronology (2025 = untreated reference, 2026 = emergency response, 2027 = adaptive management): renamed "2026 annual mortality status" and "Emergency response effectiveness" and made explicit, at the start of each, that they answer different questions -- the annual position (which includes pre-curtailment months) versus the intervention's own performance since 5 May -- resolving the apparent inconsistency between the -59%/-5% and -88%/-53% comparisons; added a note distinguishing absolute corrected totals (more uncertain) from relative year-over-year comparisons (more robust to the correction factor, since it cancels in the ratio); corrected two sentences that implied a second untreated baseline year exists or is attainable while curtailment continues; added Section 7.6, "2027 turbine classification": an explicit evidence hierarchy (Core/Expansion candidates/Review-watch-list) that keeps 2025 as the risk baseline, uses 2026 only to corroborate expansion candidates, and never reads low 2026 mortality at an already-curtailed turbine as grounds to remove it | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -889,6 +903,32 @@ mortality becomes inconvenient. The biological reference stays fixed; it
 is the monitoring-triggered operational response that is dynamic, on a
 pre-agreed, documented, and auditable basis.
 
+The sections that follow use three specific years for three specific
+purposes, and it matters that they are not interchangeable:
+
+- **2025 -- reference / untreated baseline year.** The only complete year
+  with no curtailment in place at either project, so the only source of
+  untreated seasonality, spatial risk allocation and magnitude available.
+  It is also the year the real, lender-agreed turbine selection was
+  itself built from (Sections 7.3-7.5), not a baseline chosen after the
+  fact because it happens to make 2026 look favourable.
+- **2026 -- emergency-response year.** Curtailment began 5 May 2026 at
+  the turbines already identified as critical from the 2025 baseline.
+  Mortality before that date is real and counts toward the year's total,
+  but reflects no mitigation; mortality after it is the operational
+  record of the response itself.
+- **2027 -- adaptive-management year.** The season this note's proposed
+  mechanism, and the turbine-level decisions in Section 7.5, are meant to
+  inform prospectively.
+
+2026 is not, and should not be treated as, a second untreated baseline:
+post-5-May records from curtailed turbines reflect mitigation, not
+underlying risk. It is a second year of *operational evidence* --
+genuinely valuable for testing and refining the 2025 risk picture
+(Section 7.5), but not a replacement for it. This note does not update
+the 2025 baseline by pooling or averaging it with 2026; doing so would
+mix the reference with the very effect this note is trying to measure.
+
 ## From an annual reference to a weekly control chart
 
 Mortality risk for this species is not spread evenly across the year --
@@ -920,7 +960,22 @@ possible once curtailment intensity itself, not just its presence or
 absence, has been varied across enough weeks -- a natural extension once
 more seasons of PCFM under varying prescriptions accumulate.
 
-## A first real operational example (2025-2026 PCFM data)
+## 2026 annual mortality status
+
+This section and the next ask two different questions, and the
+distinction matters enough to state explicitly before either is
+answered. This section asks: **how much mortality has accumulated in
+2026 compared with the same point in 2025?** That is the right question
+for describing the year's overall mortality position against the annual
+PBR reference -- but it necessarily includes the substantial mortality
+that had already accumulated before curtailment began on 5 May, when no
+mitigation was yet in place. It is not a measure of how well the
+emergency response itself is performing; that is a distinct, more
+targeted question, addressed on its own terms in "Emergency response
+effectiveness" below using only the period the response has actually
+been running. Reading the two together, rather than either in isolation,
+is what resolves what would otherwise look like two inconsistent
+percentages for the same intervention.
 
 The mechanism above is applied here to the actual carcass search data
 available for `r params$project_ref` -- *V. murinus* records from each
@@ -948,7 +1003,17 @@ underlying phenology; and these factors are project-level working
 estimates derived from the real GenEst output already published for the
 baseline season, not a fitted, turbine-by-turbine GenEst model in their
 own right, so the corrected counts below should be read as indicative,
-not exact.
+not exact. This affects absolute and relative figures differently, and
+it is worth being explicit about which is which: an *absolute* corrected
+total (e.g. the year-to-date estimate below) carries the full
+uncertainty of the correction factor; a *relative* comparison against
+the same project's own 2025 reference at the same point in the season
+(the year-over-year comparison, and the effectiveness reductions in the
+next section) is considerably more robust to it, because the same
+constant multiplier is applied to both years and largely cancels out in
+the ratio. The headline reduction percentages later in this section
+should therefore be read as more robust than the absolute fatality
+counts they are computed from.
 
 ```{r fig-real-dashboard}
 knitr::include_graphics(params$fig_real_dashboard)
@@ -1180,17 +1245,20 @@ not substitute for a full, search-effort-specific GenEst analysis when a
 selection or reporting decision carries lender or financial consequences
 at the individual-turbine level.
 
-## The May-August 2026 emergency response in a full operational year
+## Emergency response effectiveness
 
-The analysis above (year-to-date mortality, the year-over-year comparison,
-the forward forecast) evaluates the current season against the annual
-reference and against 2025 at the same calendar point. A related but
-distinct question is how effective the curtailment response has been on
-its own terms, and how that effectiveness would play out across a full
-"operational year" running from the curtailment start date through the
-same date the following year -- explicitly framed, as this note's
-adaptive-management proposal is throughout, as evaluating what began as
-an emergency response so it can be refined into a longer-term strategy.
+The analysis above answers "what is 2026's mortality position"; this
+section asks the different, more targeted question: **from the date the
+emergency response actually started, how much mortality was observed
+compared with what would have occurred had the 2025 pattern simply
+repeated?** Restricting the comparison to the period the response has
+actually been running -- rather than the full year, which includes
+months of pre-curtailment mortality -- is what makes this the right
+basis for judging the intervention itself, across a full "operational
+year" running from the curtailment start date through the same date the
+following year, explicitly framed, as this note's adaptive-management
+proposal is throughout, as evaluating what began as an emergency
+response so it can be refined into a longer-term strategy for 2027.
 
 The real PCFM records available for this analysis currently run to
 `r params$curtailment_year_data_max_date` --
@@ -1236,6 +1304,26 @@ early-season snapshot would give, though it should still be read
 alongside the year-over-year comparison above rather than in isolation,
 and will keep firming up as the operational year's remaining weeks
 accumulate.
+
+These reductions are the figures that belong at the centre of a lender
+discussion on emergency-response effectiveness -- but the conclusion
+should be phrased carefully. Since implementation on 5 May 2026, observed
+mortality has been
+`r round(abs(params$curtailment_year_reduction_so_far$pct_reduction[1]))`%
+below the 2025-based no-curtailment reference at
+`r params$curtailment_year_reduction_so_far$project[1]` and
+`r round(abs(params$curtailment_year_reduction_so_far$pct_reduction[2]))`%
+below it at `r params$curtailment_year_reduction_so_far$project[2]`.
+These reductions provide operational evidence consistent with a
+substantial mitigation effect, particularly at
+`r params$curtailment_year_reduction_so_far$project[1]`. Because the
+intervention was not randomised -- turbines were deliberately curtailed
+BECAUSE of their high historical mortality, not assigned independently
+of it -- and only one complete untreated reference year is available,
+the comparison should not be interpreted as a formal causal estimate of
+curtailment efficacy. *Operational effectiveness against an explicit
+historical counterfactual* is the right framing; *estimated causal
+treatment effect* is not yet a claim this evidence supports.
 
 ```{r curtailment-year-counterfactual-table}
 knitr::kable(
@@ -1402,12 +1490,93 @@ targeted a defined 50% reduction in a baseline season as an emergency
 measure. Reconciling that gap -- what it would actually take, in
 turbines and mitigation coverage, to sit reliably under the current
 reference across a full year -- is the mortality-budgeting exercise for
-the 2027 season this table is built to inform, not a recommendation
-to curtail 48 turbines outright: the real next step is testing whether a
-smaller, better-targeted set (informed by a second baseline season, and
-by which turbines the current 17/7 have already shown to be effective)
+the 2027 season this table is built to inform, not a recommendation to
+curtail 48 turbines outright under one uniform assumption. The real next
+step is not a second baseline season (2026 is operational evidence, not
+a second untreated baseline -- see above): it is testing whether a
+smaller, better-targeted set, built from the evidence hierarchy below,
 can close most of the gap at a materially lower operational cost than
 this uniform ranking implies.
+
+## 2027 turbine classification: adding and removing turbines
+
+The uniform-ranking frontier above answers "how many turbines, in
+principle" -- this section answers "which ones, and on what evidence."
+It replaces a single re-ranked "top N" list with an explicit evidence
+hierarchy that keeps 2025 as the risk baseline throughout: the current
+17/7 turbines retain their evidential weight because they were selected
+from untreated mortality; 2026 is used only to corroborate CANDIDATES
+for expansion (never to justify removing a turbine already curtailed --
+low mortality at an already-curtailed turbine is consistent with the
+intervention working, not with the turbine being low-risk); and any
+reallocation is flagged for monitoring, not prescribed as an immediate
+swap, given that only
+`r params$curtailment_year_reduction_so_far$weeks_of_real_data[1]` weeks
+of post-treatment evidence are available so far for curtailed and
+non-curtailed turbines alike.
+
+Three groups result. **Core (curtailed)**: the real, already-selected
+turbines, split by whether they show any *V. murinus* record since 5 May
+2026 -- a residual fatality there is read as evidence to monitor or
+consider intensifying, never as evidence the turbine no longer needs
+mitigation. **Expansion candidates**: turbines NOT currently curtailed
+but corroborated independently by both years -- 2025 estimated mortality
+at least half of the lowest currently-curtailed turbine's (comparable to
+turbines that WERE selected, not merely "not zero"), and at least one
+confirmed record after curtailment began in 2026 (genuine untreated
+recurrence, since these turbines were never curtailed, not noise from a
+single low-count turbine). **Review/watch-list**: the weakest-evidence
+Core turbines, paired with the strongest expansion candidates, for
+closer 2027 monitoring and joint re-assessment once a fuller season of
+evidence accumulates -- explicitly a pairing to watch, not a proposed
+substitution now.
+
+```{r fig-turbine-2027-classification}
+knitr::include_graphics(params$fig_turbine_2027_classification)
+```
+
+```{r turbine-2027-summary-table}
+knitr::kable(
+  params$turbine_2027_summary_by_project,
+  digits = 0,
+  col.names = c("Project", "Core (curtailed)", "Expansion candidates", "Not flagged"),
+  caption = "2027 turbine classification, summary by project."
+)
+```
+
+```{r turbine-2027-flagged-table}
+knitr::kable(
+  params$turbine_2027_flagged_display,
+  digits = c(0, 0, 0, 1, 0, 0),
+  col.names = c("Project", "Turbine", "2025 rank", "2025 estimated mortality", "2026 records since 5 May", "Group"),
+  caption = "Flagged turbines: expansion candidates and the watch-list pairing. Turbine identifiers anonymised by 2025 official rank, consistent with Section 7.3."
+)
+```
+
+`r proj1` shows the clearest case: two turbines (2025 ranks
+`r paste(params$turbine_2027_candidates_project1, collapse = " and ")`)
+sit close to the original selection boundary, had comparable 2025
+estimated mortality to turbines that WERE selected, and have already
+recorded *V. murinus* fatalities since curtailment began -- corroborated
+evidence in both years independently, the strongest basis this note has
+for recommending a turbine be added to the 2027 prescription.
+`r proj2` shows the opposite, equally informative
+result: its only non-curtailed turbine with a 2026 record sits at
+`r round(params$turbine_2027_weak_pct_project2)`% of the boundary
+turbine's 2025 mortality, well below the corroboration threshold -- on
+current evidence, there is no turbine at
+`r proj2` meeting the bar for expansion, a
+finding reported as such rather than adjusted to produce a symmetrical
+result between the two projects.
+`r params$turbine_2027_core_residual_project1` of the 17 Core turbines
+at `r proj1` (including the two highest-risk
+ones) and
+`r params$turbine_2027_core_residual_project2` of 7 at
+`r proj2` still show at least one recorded
+fatality since 5 May -- a concrete reminder that curtailment has reduced,
+not eliminated, risk at the turbines it already covers, and a reason to
+review intensification there alongside any decision about which
+additional turbines to add for 2027.
 
 ## What this shows, and what still needs to happen
 
@@ -1415,33 +1584,52 @@ This first pass demonstrates that the adaptive-management mechanism
 proposed above runs end to end on real data, and already produces
 genuinely informative, facility-differentiated signals -- not merely a
 proof of concept. It also surfaces concrete next steps rather than
-resolving everything: a second pre-curtailment year (or more) would
-substantially firm up the seasonal risk profile now based on a single
-year at each facility; a longer post-curtailment record would sharpen the
+resolving everything. The seasonal risk profile is still based on a
+single untreated year (2025) at each facility; it cannot be strengthened
+by a second untreated baseline, since none exists or will exist while
+curtailment continues -- the realistic path is refining it with the
+genuinely untreated portions of 2026 (non-curtailed turbines, and the
+pre-5-May window), exactly the corroborating evidence the turbine
+classification above already uses, not by waiting for a baseline that
+will not arrive. A longer post-curtailment record would sharpen the
 forward-looking forecast and make it decision-useful in its own right,
-not just a secondary check on the year-over-year comparison; and two
-extensions remain deliberately unimplemented until enough data exist to
-justify them rather than to demonstrate them in the abstract --
-incorporating energy-loss cost into any future turbine-level allocation
-exercise (so a prescription would minimise energy foregone subject to
-meeting a required reduction, rather than only ranking by expected
-mortality), and an escalate/relax hysteresis rule for adjusting
-curtailment down again (requiring several consecutive low-mortality
-assessments, with adequate monitoring power to make a low count
-informative, before relaxing -- avoiding a rule that escalates and
-relaxes on ordinary week-to-week variation).
+not just a secondary check on the year-over-year comparison. A
+difference-in-differences check of curtailment's causal effectiveness
+was deliberately not pursued for this version: curtailment was assigned
+to turbines BECAUSE of their high historical mortality rather than
+randomly, so curtailed and non-curtailed turbines are not exchangeable
+groups, and only one untreated reference year is available to check
+whether they were even on parallel trends beforehand -- a formal causal
+estimate would carry more precision than the study design can support.
+The operational-effectiveness comparison against an explicit historical
+counterfactual, used throughout this note, is the more honest framing
+given that limitation. Two further extensions remain deliberately
+unimplemented until enough data exist to justify them rather than to
+demonstrate them in the abstract -- incorporating energy-loss cost into
+any future turbine-level allocation exercise (so a prescription would
+minimise energy foregone subject to meeting a required reduction, rather
+than only ranking by expected mortality), and an escalate/relax
+hysteresis rule for adjusting curtailment down again (requiring several
+consecutive low-mortality assessments, with adequate monitoring power to
+make a low count informative, before relaxing -- avoiding a rule that
+escalates and relaxes on ordinary week-to-week variation; the 2027
+watch-list above is this note's first, deliberately conservative step in
+that direction).
 
-The two checks above add a further, complementary layer: the turbine
+The checks above add a further, complementary layer: the turbine
 validation shows that an independent, project-level replication of the
 real turbine selection is directionally sound but not a substitute for
 the real, search-effort-specific analysis behind a lender-facing
-decision; and the operational-year comparison, now resting on
+decision; the operational-year comparison, now resting on
 `r params$curtailment_year_reduction_so_far$weeks_of_real_data[1]` weeks
 of real 2026 data, gives a season-scale read on whether the emergency
 response is reducing mortality relative to the no-curtailment
-counterfactual at each project -- while also making explicit that the
+counterfactual at each project, while also making explicit that the
 current curtailment window leaves part of the operational year
-uncovered. Both checks should keep being re-run as later 2026 records
-accumulate, particularly once the season's autumn/winter tail is
-covered, before either is treated as a final verdict on the strategy's
+uncovered; and the 2027 classification turns that evidence into a
+concrete, evidence-hierarchy-based recommendation for which turbines to
+add, without ever treating a currently-curtailed turbine's improvement as
+grounds to remove it. All three should keep being re-run as later 2026
+records accumulate, particularly once the season's autumn/winter tail is
+covered, before any is treated as a final verdict on the strategy's
 effectiveness.

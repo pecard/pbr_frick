@@ -27,6 +27,7 @@ source("R/turbine_selection_validation.R")
 source("R/curtailment_year_effectiveness.R")
 source("R/global_pbr_uncertainty.R")
 source("R/candidate_pbr_reference.R")
+source("R/turbine_2027_classification.R")
 source("R/pbr_report.R")
 source(file.path("inputs", pbr_settings_file))
 
@@ -65,6 +66,10 @@ candidate_pbr_params <- run_candidate_pbr_reference(
   real_turbine_hist = adaptive_params$real_turbine_hist,
   curtailment_year_full_counterfactual = curtailment_year_params$curtailment_year_full_counterfactual
 )
+turbine_2027_params <- run_turbine_2027_classification(
+  fig_dir = "outputs/figures", bash_path = bash_data_path, djangeldy_path = djangeldy_data_path,
+  official_bash_path = official_bash_path, official_djangeldy_path = official_djangeldy_path
+)
 
 report_params <- c(
   pbr_params,
@@ -72,7 +77,8 @@ report_params <- c(
   turbine_validation_params,
   curtailment_year_params,
   global_pbr_params,
-  candidate_pbr_params
+  candidate_pbr_params,
+  turbine_2027_params
 )
 
 build_pbr_report(

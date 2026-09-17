@@ -57,10 +57,13 @@ run_turbine_2027_classification <- function(fig_dir = "outputs/figures",
     mutate(official_selected = as.logical(official_selected)) %>% rename(turbine = turbine_real)
   d <- suppressWarnings(d %>% mutate(turbine = ifelse(project == facility_labels[1], pad_bsh(turbine), pad_dzh(turbine))))
 
+  boundary_values <- list()
+
   classify_project <- function(official, proj_label) {
     post_may <- d %>% filter(project == proj_label, date >= curtailment_start_date) %>%
       count(turbine, name = "raw_post_may")
     boundary_value <- min(official$official_estimated_mortality[official$official_selected])
+    boundary_values[[proj_label]] <<- boundary_value
 
     tbl <- official %>%
       left_join(post_may, by = "turbine") %>%
@@ -99,15 +102,20 @@ run_turbine_2027_classification <- function(fig_dir = "outputs/figures",
   tbl_dzh <- classify_project(official_dzh, facility_labels[2])
   classification_all <- bind_rows(tbl_bash, tbl_dzh)
 
-  summary_by_group <- classification_all %>%
+  summary_by_project <- classification_all %>%
     mutate(group_summary = ifelse(grepl("^Core", group), "Core (curtailed)", group)) %>%
     count(project, group_summary, name = "n_turbines") %>%
-    tidyr::pivot_wider(names_from = group_summary, values_from = n_turbines, values_fill = 0)
+    tidyr::pivot_wider(names_from = group_summary, values_from = n_turbines, values_fill = 0) %>%
+    select(project, `Core (curtailed)`, `Expansion candidate`, `Not flagged`)
 
   flagged <- classification_all %>%
     filter(group == "Expansion candidate" | watchlist) %>%
     arrange(project, desc(group), official_rank) %>%
     select(project, turbine_anon, official_rank, official_estimated_mortality, raw_post_may, group, core_status, watchlist)
+
+  flagged_display <- flagged %>%
+    mutate(group = gsub(" \\(marginal\\)", "", group)) %>%
+    select(project, turbine_anon, official_rank, official_estimated_mortality, raw_post_may, group)
 
   core_residual_summary <- classification_all %>%
     filter(official_selected) %>%
@@ -117,6 +125,19 @@ run_turbine_2027_classification <- function(fig_dir = "outputs/figures",
       n_with_residual = sum(raw_post_may > 0),
       .groups = "drop"
     )
+
+  ## Closest-miss diagnostic: among non-curtailed, non-flagged turbines
+  ## with at least one 2026 record, how close did the strongest one come
+  ## to the corroboration bar? Used to report honestly when a project has
+  ## no turbine meeting it (e.g. Project 2), rather than silence the gap.
+  closest_miss <- classification_all %>%
+    filter(!official_selected, group == "Not flagged", raw_post_may > 0) %>%
+    group_by(project) %>%
+    slice_max(official_estimated_mortality, n = 1, with_ties = FALSE) %>%
+    ungroup() %>%
+    mutate(boundary_value = sapply(project, function(p) boundary_values[[p]]),
+           pct_of_boundary = 100 * official_estimated_mortality / boundary_value) %>%
+    select(project, turbine_anon, official_estimated_mortality, pct_of_boundary)
 
   fig_2027_classification <- file.path(fig_dir, "turbine_2027_classification.png")
   ggsave(fig_2027_classification, width = 10.5, height = 5.5, dpi = 150, plot = {
@@ -145,13 +166,31 @@ run_turbine_2027_classification <- function(fig_dir = "outputs/figures",
       theme(plot.subtitle = element_text(size = 9.5), strip.text = element_text(face = "bold"), legend.position = "bottom")
   })
 
+  candidates_by_project <- function(proj_label) {
+    classification_all %>% filter(project == proj_label, group == "Expansion candidate") %>%
+      arrange(official_rank) %>% pull(turbine_anon)
+  }
+  core_residual_n <- function(proj_label) {
+    core_residual_summary %>% filter(project == proj_label) %>% pull(n_with_residual)
+  }
+  weak_pct <- function(proj_label) {
+    v <- closest_miss %>% filter(project == proj_label) %>% pull(pct_of_boundary)
+    if (length(v) == 0) NA_real_ else v
+  }
+
   list(
     turbine_2027_classification = classification_all,
-    turbine_2027_flagged = flagged,
-    turbine_2027_summary_by_group = summary_by_group,
+    turbine_2027_flagged_display = flagged_display,
+    turbine_2027_summary_by_project = summary_by_project,
     turbine_2027_core_residual_summary = core_residual_summary,
     turbine_2027_expansion_fraction = expansion_mortality_fraction,
     turbine_2027_watchlist_n = watchlist_n,
+    turbine_2027_candidates_project1 = candidates_by_project(facility_labels[1]),
+    turbine_2027_candidates_project2 = candidates_by_project(facility_labels[2]),
+    turbine_2027_core_residual_project1 = core_residual_n(facility_labels[1]),
+    turbine_2027_core_residual_project2 = core_residual_n(facility_labels[2]),
+    turbine_2027_weak_pct_project1 = weak_pct(facility_labels[1]),
+    turbine_2027_weak_pct_project2 = weak_pct(facility_labels[2]),
     fig_turbine_2027_classification = fig_2027_classification
   )
 }
