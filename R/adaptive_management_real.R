@@ -63,7 +63,7 @@ run_adaptive_management_real <- function(fig_dir,
   ## ---- 2026 weekly corrected counts per project ------------------------------
   weekly_2026 <- d %>% filter(year == 2026) %>% count(project, iso_week, name = "raw") %>%
     tidyr::complete(project = project_thresholds$project, iso_week = 1:53, fill = list(raw = 0)) %>%
-    mutate(corrected = raw * genest_correction_factor) %>%
+    mutate(corrected = raw * genest_correction_factor[project]) %>%
     left_join(project_thresholds, by = "project")
 
   checkpoint_week <- d %>% filter(year == 2026) %>% summarise(m = max(iso_week)) %>% pull(m)
@@ -78,7 +78,7 @@ run_adaptive_management_real <- function(fig_dir,
   ## ---- Year-over-year comparison, same checkpoint week -----------------------
   weekly_2025_by_project <- d %>% filter(year == 2025) %>% count(project, iso_week, name = "raw") %>%
     tidyr::complete(project = project_thresholds$project, iso_week = 1:53, fill = list(raw = 0)) %>%
-    mutate(corrected = raw * genest_correction_factor)
+    mutate(corrected = raw * genest_correction_factor[project])
   yoy_summary <- bind_rows(
     weekly_2025_by_project %>% filter(iso_week <= checkpoint_week) %>% mutate(year = 2025),
     weekly_2026 %>% filter(iso_week <= checkpoint_week) %>% mutate(year = 2026)
@@ -145,7 +145,7 @@ run_adaptive_management_real <- function(fig_dir,
   turbine_hist <- d %>%
     filter(period != "2026, post-curtailment") %>%
     count(project, turbine, name = "raw") %>%
-    mutate(corrected = raw * genest_correction_factor) %>%
+    mutate(corrected = raw * genest_correction_factor[project]) %>%
     group_by(project) %>%
     arrange(desc(corrected), .by_group = TRUE) %>%
     mutate(rank = row_number(), cum_pct = cumsum(corrected) / sum(corrected),
@@ -167,7 +167,8 @@ run_adaptive_management_real <- function(fig_dir,
         x = "Turbine (ranked by pre-curtailment corrected mortality)",
         title = paste0("Where pre-curtailment V. murinus mortality concentrated (", project_label, ")"),
         subtitle = paste0(
-          "2025 + 2026 pre-curtailment records only, GenEst-corrected (x", genest_correction_factor, ").\n",
+          "2025 + 2026 pre-curtailment records only, GenEst-corrected (x",
+          sprintf("%.2f", genest_correction_factor[project_label]), ").\n",
           n_top80, " of ", n_focus, " turbines (", round(100 * n_top80 / n_focus),
           "%) account for 80% of pre-curtailment mortality."
         )
@@ -188,7 +189,9 @@ run_adaptive_management_real <- function(fig_dir,
   })
 
   list(
-    real_correction_factor = genest_correction_factor,
+    real_correction_factor_by_project = tibble::tibble(
+      project = names(genest_correction_factor), factor = as.numeric(genest_correction_factor)
+    ),
     real_curtailment_start = format(curtailment_start_date, "%d %B %Y"),
     real_curtailment_week = curtailment_week,
     real_checkpoint_week = checkpoint_week,

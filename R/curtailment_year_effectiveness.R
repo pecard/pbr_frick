@@ -61,8 +61,8 @@ run_curtailment_year_effectiveness <- function(fig_dir = "outputs/figures",
     ) %>%
     ungroup() %>%
     mutate(
-      actual_corrected = ifelse(start_date <= data_max_date, actual_raw * genest_correction_factor, NA_real_),
-      counterfactual_corrected = counterfactual_raw * genest_correction_factor
+      actual_corrected = ifelse(start_date <= data_max_date, actual_raw * genest_correction_factor[project], NA_real_),
+      counterfactual_corrected = counterfactual_raw * genest_correction_factor[project]
     ) %>%
     left_join(project_thresholds, by = "project")
 

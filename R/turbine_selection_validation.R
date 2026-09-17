@@ -1,10 +1,12 @@
 ##
 ## Turbine-level retrospective validation (Paulo, 2026-09): how well would
 ## an independently-derived turbine ranking -- built only from the raw
-## per-carcass PCFM records and the project's stated x4 GenEst rule of
-## thumb -- have reproduced the REAL turbine selection actually agreed
-## with the lenders and documented in the Blanket Curtailment Plan
-## technical note (May 2026)?
+## per-carcass PCFM records and the project-specific working GenEst
+## correction factor -- have reproduced the REAL turbine selection
+## actually agreed with the lenders and documented in the Blanket
+## Curtailment Plan technical note (May 2026)? (This script is itself the
+## source of those project-specific factors, R/load_real_mortality_data.R
+## -- see the note on that below.)
 ##
 ## Real methodology (from that document, Steps 1-5): rank turbines by
 ## GenEst-estimated mortality over a defined baseline season, cumulative-
@@ -15,9 +17,15 @@
 ##
 ## This script reproduces the SAME ranking procedure using only what an
 ## independent, project-level analysis could compute from the raw carcass
-## log: per-turbine V. murinus carcass counts x4 (genest_correction_factor,
-## R/load_real_mortality_data.R), over the same baseline windows. The two
-## real per-turbine reference tables (official rank, real GenEst estimate,
+## log: per-turbine V. murinus carcass counts x the project-specific
+## working factor (genest_correction_factor, R/load_real_mortality_data.R
+## -- itself derived FROM the comparison this script performs, see the
+## note below), over the same baseline windows. A per-project SCALAR
+## multiplier does not change turbine rank order within a project (it
+## scales every turbine's count equally), so which turbines this
+## replication selects is unaffected by that circularity -- only the
+## absolute mortality-value columns reported alongside the ranking are.
+## The two real per-turbine reference tables (official rank, real GenEst estimate,
 ## real turbine code, real selection flag) are the actual Table 3/Table 4
 ## content from that document -- real turbine identifiers, kept local-only
 ## in data-raw/ (gitignored) alongside the raw carcass data, never
@@ -33,8 +41,9 @@
 ## nominal March 2025 window). The actual data-start date used is reported
 ## explicitly alongside the comparison below, not assumed -- it is one of
 ## the two likely reasons for any turbine-level mismatch between the two
-## rankings, the other being the x4-vs-real-GenEst correction-factor
-## question addressed further down.
+## rankings, the other being genuine per-turbine variability that even a
+## validated PROJECT-level correction factor cannot capture, addressed
+## further down.
 ##
 
 suppressPackageStartupMessages({ library(dplyr); library(ggplot2) })
@@ -73,11 +82,11 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
   bash_data_start <- min(bash_raw$date)
   dzh_data_start  <- min(dzh_raw$date)
 
-  rank_and_select <- function(raw_dt, window) {
+  rank_and_select <- function(raw_dt, window, project_label) {
     raw_dt %>%
       filter(date >= window[1], date <= window[2]) %>%
       count(turbine, name = "raw") %>%
-      mutate(my_estimated_mortality = raw * genest_correction_factor) %>%
+      mutate(my_estimated_mortality = raw * genest_correction_factor[project_label]) %>%
       arrange(desc(my_estimated_mortality)) %>%
       mutate(
         my_rank = row_number(),
@@ -86,8 +95,8 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
       )
   }
 
-  bash_mine <- rank_and_select(bash_raw, bash_window)
-  dzh_mine  <- rank_and_select(dzh_raw, dzh_window)
+  bash_mine <- rank_and_select(bash_raw, bash_window, facility_labels[1])
+  dzh_mine  <- rank_and_select(dzh_raw, dzh_window, facility_labels[2])
 
   ## ---- Official reference (real Table 3 / Table 4 content) ------------------
   official_bash <- read.csv(official_bash_path, stringsAsFactors = FALSE) %>%
@@ -138,7 +147,9 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
       .groups = "drop"
     )
 
-  ## ---- Where the x4 rule most over/under-shoots the real GenEst estimate ---
+  ## ---- Where a flat rule would most over/under-shoot the real GenEst
+  ## estimate, and the project-specific aggregate ratio this note now uses
+  ## as genest_correction_factor (R/load_real_mortality_data.R) ------------
   ## (only meaningful where both a real and a replicated estimate exist)
   correction_check <- comparison_all %>%
     filter(!is.na(official_estimated_mortality), !is.na(my_estimated_mortality)) %>%
@@ -147,6 +158,15 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
            official_estimated_mortality, my_estimated_mortality, implied_correction_ratio)
   correction_ratio_range <- range(correction_check$implied_correction_ratio)
   correction_ratio_median <- median(correction_check$implied_correction_ratio)
+  correction_ratio_by_project <- correction_check %>%
+    group_by(project) %>%
+    summarise(
+      median_ratio = median(implied_correction_ratio),
+      min_ratio = min(implied_correction_ratio),
+      max_ratio = max(implied_correction_ratio),
+      aggregate_ratio = sum(official_estimated_mortality) / sum(raw),
+      .groups = "drop"
+    )
 
   ## ---- Figure: official rank vs. replicated rank, coloured by agreement ----
   rank_plot_dt <- comparison_all %>%
@@ -172,7 +192,7 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
       scale_colour_manual(name = "Agreement", values = agreement_colours) +
       labs(
         x = "Official rank (Blanket Curtailment Plan, Table 3/4)",
-        y = paste0("Independent replication rank (raw carcasses x", genest_correction_factor, ", same baseline window)"),
+        y = "Independent replication rank (raw carcasses x project-specific working factor, same baseline window)",
         title = "Turbine-level retrospective validation: official vs. independently-replicated selection",
         subtitle = paste0(
           "Dashed lines mark each method's own 50%-cumulative-mortality cutoff; points below/left of both lines\n",
@@ -187,6 +207,7 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
   list(
     turbine_validation_correction_ratio_range = correction_ratio_range,
     turbine_validation_correction_ratio_median = correction_ratio_median,
+    turbine_validation_correction_ratio_by_project = correction_ratio_by_project,
     fig_turbine_validation = fig_turbine_validation,
     turbine_validation_bash_window = paste(format(bash_window, "%d %B %Y"), collapse = " - "),
     turbine_validation_dzh_window = paste(format(dzh_window, "%d %B %Y"), collapse = " - "),

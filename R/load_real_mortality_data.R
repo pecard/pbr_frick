@@ -29,15 +29,29 @@
 ## real names -- consistent with the anonymisation already done for the
 ## workshop presentation.
 ##
-## Raw carcass counts are corrected for detection probability using
-## Paulo's stated multiplicative rule (GenEst-style unbiased estimate =
-## 4 x raw carcasses found) -- a project-level rule of thumb, not a
-## per-search-effort GenEst model fit; flagged as such wherever it's used.
+## Raw carcass counts are corrected for detection probability using a
+## project-specific multiplicative factor -- NOT a per-search-effort
+## GenEst model fit in its own right, but no longer a single flat rule
+## either (Paulo, 2026-09): each value is the aggregate, mortality-
+## weighted ratio between the real GenEst-estimated mortality per turbine
+## (Blanket Curtailment Plan, Table 3/Table 4) and the matching raw
+## carcass count over the same baseline season, computed and validated in
+## R/turbine_selection_validation.R. A single shared factor -- the
+## originally-assumed flat 4x, or even the combined per-turbine median
+## (~4.3x) -- was checked against this and rejected: Project 2's real
+## ratio (6.21x) is meaningfully higher than Project 1's (4.64x), so a
+## shared factor would have understated Project 2's true corrected
+## mortality by roughly a third. Per-turbine variability remains even
+## within a project (Project 1: 2.9x-9.75x; Project 2: 3.9x-12.9x) --
+## these project-level aggregates are the best available working
+## estimate given the real GenEst output already published for the
+## baseline season, not a claim of turbine-level precision; flagged as
+## such wherever this is used.
 ##
 
 suppressPackageStartupMessages({ library(readxl); library(dplyr); library(lubridate) })
 
-genest_correction_factor <- 4
+genest_correction_factor <- c("Project 1" = 4.64, "Project 2" = 6.21)
 curtailment_start_date <- as.Date("2026-05-05")
 
 load_real_mortality_data <- function(bash_path = "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx",

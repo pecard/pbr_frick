@@ -63,7 +63,7 @@ params:
   fig_leslie_boundary_surface: ""
   nmin_vs_lambda_sensitivity: !r NULL
   fig_nmin_lambda_surface: ""
-  real_correction_factor: !r NULL
+  real_correction_factor_by_project: !r NULL
   real_curtailment_start: ""
   real_curtailment_week: !r NULL
   real_checkpoint_week: !r NULL
@@ -76,6 +76,7 @@ params:
   fig_real_turbine_pareto: ""
   turbine_validation_correction_ratio_range: !r NULL
   turbine_validation_correction_ratio_median: !r NULL
+  turbine_validation_correction_ratio_by_project: !r NULL
   fig_turbine_validation: ""
   turbine_validation_bash_window: ""
   turbine_validation_dzh_window: ""
@@ -127,6 +128,7 @@ Document history / List of changes.
 | Version 10 | Corrected the imposed annual thresholds throughout from 144/120 to 112/88 bats/year, the values actually used operationally, confirmed against the Blanket Curtailment Plan technical note | 2026-09 | Paulo Cardoso |
 | Version 11 | Added two turbine- and season-level checks against real operational data: a retrospective validation of an independently-derived turbine selection against the actual, lender-agreed selection documented in the Blanket Curtailment Plan; and a full operational-year (May 2026-May 2027) comparison of actual, post-curtailment mortality against a no-curtailment counterfactual built from the prior year's pattern | 2026-09 | Paulo Cardoso |
 | Version 12 | Fixed a future-dated PCFM record (data-entry typo) that had pulled Section 7.4's checkpoint 2-3 weeks ahead of the real data; clarified why Section 7.2's turbine universe differs from the official selection's; added Section 7.5, "2027 mitigation frontier": extends the PBR Monte Carlo with project-specific Nmin uncertainty (in place of the fixed reverse-engineered value used elsewhere), then compares the current thresholds against Q05/Q25/median/Q75 of the resulting distribution on identical terms -- PVA-lite risk, mortality-budgeting reduction required, and turbines needed under a literature-benchmarked curtailment-effectiveness assumption (Adams, Gulka & Williams 2021) -- as decision-support for the 2027 season, not a proposal to change the imposed thresholds | 2026-09 | Paulo Cardoso |
+| Version 13 | Replaced the flat 4x GenEst working correction factor with project-specific factors (4.64x at Project 1, 6.21x at Project 2), the aggregate mortality-weighted ratio between each project's real GenEst-estimated mortality and matching raw carcass count, validated turbine-by-turbine in "Turbine-level retrospective validation"; a single shared factor understated Project 2's true corrected mortality by roughly a third. Propagates through every corrected-mortality figure in Section 7 (year-to-date totals, year-over-year comparison, turbine concentration, operational-year effectiveness); also added an explanatory paragraph on how to read the turbine-validation rank scatter plot | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -923,17 +925,30 @@ more seasons of PCFM under varying prescriptions accumulate.
 The mechanism above is applied here to the actual carcass search data
 available for `r params$project_ref` -- *V. murinus* records from each
 project's carcass search log, corrected for detection probability using
-the project's working multiplicative rule
-(unbiased estimate = `r params$real_correction_factor` x raw carcasses
-found). Curtailment at the turbines already identified as critical began
-`r params$real_curtailment_start`. Two limitations should be read
-alongside everything below: the seasonal risk profile ($q_t$) is derived
-from a single pre-curtailment year (2025) at each facility, since that is
-the only full year available, so it reflects that year's particular
-timing as well as the species' underlying phenology; and the
-`r params$real_correction_factor`x rule is a project-level working
-assumption, not a fitted, search-effort-specific GenEst model, so the
-corrected counts below should be read as indicative, not exact.
+a project-specific working multiplicative factor: unbiased estimate =
+`r round(params$real_correction_factor_by_project$factor[1], 2)`x raw
+carcasses found at `r params$real_correction_factor_by_project$project[1]`,
+`r round(params$real_correction_factor_by_project$factor[2], 2)`x at
+`r params$real_correction_factor_by_project$project[2]`. These are not a
+single shared assumption: they are the aggregate, mortality-weighted
+ratio between each project's real GenEst-estimated mortality (Blanket
+Curtailment Plan, Table 3/Table 4) and the matching raw carcass count
+over the same baseline season, validated turbine-by-turbine in
+"Turbine-level retrospective validation" below -- a project-level
+average originally checked against a single shared factor (the flat 4x
+this note used prior to that validation), which was rejected because it
+would have understated `r params$real_correction_factor_by_project$project[2]`'s
+true corrected mortality by roughly a third. Curtailment at the turbines
+already identified as critical began `r params$real_curtailment_start`.
+Two limitations should be read alongside everything below: the seasonal
+risk profile ($q_t$) is derived from a single pre-curtailment year
+(2025) at each facility, since that is the only full year available, so
+it reflects that year's particular timing as well as the species'
+underlying phenology; and these factors are project-level working
+estimates derived from the real GenEst output already published for the
+baseline season, not a fitted, turbine-by-turbine GenEst model in their
+own right, so the corrected counts below should be read as indicative,
+not exact.
 
 ```{r fig-real-dashboard}
 knitr::include_graphics(params$fig_real_dashboard)
@@ -1059,10 +1074,15 @@ This produced 17 selected turbines at
 `r params$real_overage_summary$project[2]` (of 27 assessed).
 
 A natural question is how well a simpler, independent approach -- ranking
-turbines by raw carcass counts and this note's own
-`r params$real_correction_factor`x working rule, rather than a full
-search-effort-specific GenEst fit -- would have reproduced that selection,
-applied to the same baseline season and the same 50%-cumulative rule. Two
+turbines by raw carcass counts and this note's own project-specific
+working factors, rather than a full search-effort-specific GenEst fit --
+would have reproduced that selection, applied to the same baseline season
+and the same 50%-cumulative rule. (Those working factors are themselves
+the outcome of this comparison, computed once at the aggregate,
+project level and reused throughout this note -- see below; because they
+are a single scalar per project, they do not change turbine RANK ORDER
+within a project, so this remains an independent test of which turbines
+get selected, not a circular one.) Two
 data-coverage caveats apply to this replication and are not smoothed over:
 the raw carcass records available run from 22 April 2025 at
 `r params$real_overage_summary$project[1]` and from 9 April 2025 at
@@ -1115,22 +1135,50 @@ combined estimated mortality than of their count alone (turbines it
 misses tend to be lower-mortality ones near the 50% cutoff, where small
 count differences flip a turbine across the line). The remaining gap is
 consistent with two compounding factors, not a single cause: the shorter
-data window noted above, and the fact that the real, project-specific
-GenEst correction is not a flat multiplier -- the implied ratio between
-the official estimated mortality and the matching raw carcass count
-ranges from `r round(params$turbine_validation_correction_ratio_range[1], 1)`x
-to `r round(params$turbine_validation_correction_ratio_range[2], 1)`x
-across individual turbines (median
-`r round(params$turbine_validation_correction_ratio_median, 1)`x, close to
-but visibly more variable than this note's flat
-`r params$real_correction_factor`x working assumption), reflecting
-genuine differences in search effort, scavenging rates or carcass
-persistence between turbines that a project-level average cannot capture.
-Practically, this means a simple carcass-count ranking is a reasonable
-first approximation for identifying priority turbines between formal
-selection exercises, but should not substitute for a full, search-effort-
-specific GenEst analysis when a selection decision carries lender or
-financial consequences.
+data window noted above, and genuine per-turbine variability that even a
+validated, project-level correction factor cannot capture. That
+variability is exactly what this comparison quantifies: the implied
+ratio between the official estimated mortality and the matching raw
+carcass count ranges from
+`r round(params$turbine_validation_correction_ratio_range[1], 1)`x to
+`r round(params$turbine_validation_correction_ratio_range[2], 1)`x across
+individual turbines (combined median
+`r round(params$turbine_validation_correction_ratio_median, 1)`x), and
+differs meaningfully between projects in aggregate:
+
+```{r turbine-validation-correction-by-project-table}
+knitr::kable(
+  params$turbine_validation_correction_ratio_by_project,
+  digits = c(0, 2, 2, 2, 2),
+  col.names = c("Project", "Median ratio (per turbine)", "Min", "Max", "Aggregate ratio (mortality-weighted)"),
+  caption = "Implied GenEst correction ratio (official estimated mortality / matching raw carcass count), per project."
+)
+```
+
+This is the finding that drove a correction to this note's own working
+assumption (2026-09): a single shared factor -- originally a flat 4x,
+and checked against the combined per-turbine median above (~4.3x) as an
+alternative -- would have understated
+`r params$real_correction_factor_by_project$project[2]`'s true corrected
+mortality by roughly a third, since its real aggregate ratio
+(`r round(params$real_correction_factor_by_project$factor[2], 2)`x) sits
+well above both. This note now uses each project's own aggregate ratio
+(`r round(params$real_correction_factor_by_project$factor[1], 2)`x at
+`r params$real_correction_factor_by_project$project[1]`,
+`r round(params$real_correction_factor_by_project$factor[2], 2)`x at
+`r params$real_correction_factor_by_project$project[2]`) throughout,
+rather than a combined or flat figure -- but the per-turbine range in
+the table above (up to
+`r round(params$turbine_validation_correction_ratio_range[2], 1)`x for
+an individual turbine) is the reason even this improved, project-level
+correction should still be read as indicative rather than exact at the
+individual-turbine level. Practically, this means a simple carcass-count
+ranking, corrected with the right project-level factor, is a reasonable
+first approximation for identifying priority turbines and estimating
+project-level mortality between formal selection exercises, but should
+not substitute for a full, search-effort-specific GenEst analysis when a
+selection or reporting decision carries lender or financial consequences
+at the individual-turbine level.
 
 ## The May-August 2026 emergency response in a full operational year
 
