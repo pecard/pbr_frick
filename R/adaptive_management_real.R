@@ -25,7 +25,7 @@
 ## pre-curtailment year (or more) becomes available.
 ##
 
-suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2); library(lubridate) })
+suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2); library(lubridate); library(patchwork) })
 
 run_adaptive_management_real <- function(fig_dir,
                                           bash_path = "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx",
@@ -136,31 +136,39 @@ run_adaptive_management_real <- function(fig_dir,
            turbine_anon = sprintf("T-%02d", rank)) %>%
     ungroup()
 
-  focus_project <- project_thresholds$project[which.max(overage_summary$corrected)]
-  turbine_focus <- turbine_hist %>% filter(project == focus_project)
-  n_turbines_focus <- nrow(turbine_focus)
-  n_turbines_top80 <- min(which(turbine_focus$cum_pct >= 0.80))
-
-  fig_real_turbine_pareto <- file.path(fig_dir, "turbine_pareto_real.png")
-  ggsave(fig_real_turbine_pareto, width = 10, height = 5.5, dpi = 150, plot = {
-    ggplot(turbine_focus, aes(x = reorder(turbine_anon, rank))) +
+  plot_turbine_pareto <- function(turbine_dt, project_label) {
+    n_focus <- nrow(turbine_dt)
+    n_top80 <- min(which(turbine_dt$cum_pct >= 0.80))
+    p <- ggplot(turbine_dt, aes(x = reorder(turbine_anon, rank))) +
       geom_col(aes(y = corrected), fill = "firebrick", alpha = 0.8) +
       geom_line(aes(y = cum_pct * max(corrected), group = 1), colour = "grey20", linewidth = 0.6) +
       geom_point(aes(y = cum_pct * max(corrected)), colour = "grey20", size = 1) +
       scale_y_continuous(
         name = "GenEst-corrected fatalities (pre-curtailment period)",
-        sec.axis = sec_axis(~ . / max(turbine_focus$corrected), name = "Cumulative % of mortality", labels = scales::percent)
+        sec.axis = sec_axis(~ . / max(turbine_dt$corrected), name = "Cumulative % of mortality", labels = scales::percent)
       ) +
       labs(
         x = "Turbine (ranked by pre-curtailment corrected mortality)",
-        title = paste0("Where pre-curtailment V. murinus mortality concentrated (", focus_project, ")"),
+        title = paste0("Where pre-curtailment V. murinus mortality concentrated (", project_label, ")"),
         subtitle = paste0(
-          "2025 + 2026 pre-curtailment records only, GenEst-corrected (x4). ", n_turbines_top80, " of ", n_turbines_focus,
-          " turbines (", round(100 * n_turbines_top80 / n_turbines_focus), "%) account for 80% of pre-curtailment mortality."
+          "2025 + 2026 pre-curtailment records only, GenEst-corrected (x", genest_correction_factor, ").\n",
+          n_top80, " of ", n_focus, " turbines (", round(100 * n_top80 / n_focus),
+          "%) account for 80% of pre-curtailment mortality."
         )
       ) +
       theme_minimal() +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 6), plot.subtitle = element_text(size = 8.5))
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 6), plot.subtitle = element_text(size = 11))
+    list(plot = p, n_focus = n_focus, n_top80 = n_top80)
+  }
+
+  turbine_pareto_by_project <- setNames(
+    lapply(project_thresholds$project, function(proj) plot_turbine_pareto(turbine_hist %>% filter(project == proj), proj)),
+    project_thresholds$project
+  )
+
+  fig_real_turbine_pareto <- file.path(fig_dir, "turbine_pareto_real.png")
+  ggsave(fig_real_turbine_pareto, width = 10, height = 11, dpi = 150, plot = {
+    turbine_pareto_by_project[[1]]$plot / turbine_pareto_by_project[[2]]$plot
   })
 
   list(
@@ -171,9 +179,11 @@ run_adaptive_management_real <- function(fig_dir,
     real_overage_summary = overage_summary,
     real_yoy_summary = yoy_summary,
     real_forecast_summary = forecast_summary,
-    real_focus_project = focus_project,
-    real_n_turbines_focus = n_turbines_focus,
-    real_n_turbines_top80 = n_turbines_top80,
+    real_n_turbines_by_project = tibble::tibble(
+      project = names(turbine_pareto_by_project),
+      n_turbines_focus = sapply(turbine_pareto_by_project, `[[`, "n_focus"),
+      n_turbines_top80 = sapply(turbine_pareto_by_project, `[[`, "n_top80")
+    ),
     fig_real_dashboard = fig_real_dashboard,
     fig_real_turbine_pareto = fig_real_turbine_pareto
   )

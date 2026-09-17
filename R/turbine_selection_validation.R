@@ -172,7 +172,7 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
       scale_colour_manual(name = "Agreement", values = agreement_colours) +
       labs(
         x = "Official rank (Blanket Curtailment Plan, Table 3/4)",
-        y = "Independent replication rank (raw carcasses x4, same baseline window)",
+        y = paste0("Independent replication rank (raw carcasses x", genest_correction_factor, ", same baseline window)"),
         title = "Turbine-level retrospective validation: official vs. independently-replicated selection",
         subtitle = paste0(
           "Dashed lines mark each method's own 50%-cumulative-mortality cutoff; points below/left of both lines\n",
@@ -180,7 +180,7 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
         )
       ) +
       theme_minimal() +
-      theme(plot.subtitle = element_text(size = 8), strip.text = element_text(face = "bold"),
+      theme(plot.subtitle = element_text(size = 11), strip.text = element_text(face = "bold"),
             legend.position = "bottom")
   })
 

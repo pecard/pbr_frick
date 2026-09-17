@@ -70,9 +70,7 @@ params:
   real_overage_summary: !r NULL
   real_yoy_summary: !r NULL
   real_forecast_summary: !r NULL
-  real_focus_project: ""
-  real_n_turbines_focus: !r NULL
-  real_n_turbines_top80: !r NULL
+  real_n_turbines_by_project: !r NULL
   fig_real_dashboard: ""
   fig_real_turbine_pareto: ""
   turbine_validation_correction_ratio_range: !r NULL
@@ -1005,16 +1003,23 @@ knitr::include_graphics(params$fig_real_turbine_pareto)
 Turbine identifiers are anonymised (rank-based labels) consistent with
 the rest of this note. The distribution of pre-curtailment mortality
 across turbines is less concentrated than a simplified illustrative
-example might suggest: at `r params$real_focus_project`,
-`r params$real_n_turbines_top80` of `r params$real_n_turbines_focus`
-turbines (`r round(100 * params$real_n_turbines_top80 / params$real_n_turbines_focus)`%
-of the fleet) are needed to account for 80% of pre-curtailment mortality,
-rather than a small handful. This matters operationally: a strategy of
-curtailing only a small minority of turbines is less likely to capture
-most of the risk at this project than turbine-level PCFM data from a
-more spatially concentrated site would suggest, and broader-coverage
-curtailment, informed by this ranking, is likely to be necessary rather
-than optional.
+example might suggest, at either project:
+`r params$real_n_turbines_by_project$n_turbines_top80[1]` of
+`r params$real_n_turbines_by_project$n_turbines_focus[1]` turbines at
+`r params$real_n_turbines_by_project$project[1]`
+(`r round(100 * params$real_n_turbines_by_project$n_turbines_top80[1] / params$real_n_turbines_by_project$n_turbines_focus[1])`%
+of the fleet), and
+`r params$real_n_turbines_by_project$n_turbines_top80[2]` of
+`r params$real_n_turbines_by_project$n_turbines_focus[2]` turbines at
+`r params$real_n_turbines_by_project$project[2]`
+(`r round(100 * params$real_n_turbines_by_project$n_turbines_top80[2] / params$real_n_turbines_by_project$n_turbines_focus[2])`%),
+are needed to account for 80% of pre-curtailment mortality, rather than
+a small handful at either site. This matters operationally: a strategy
+of curtailing only a small minority of turbines is less likely to
+capture most of the risk at either project than turbine-level PCFM data
+from a more spatially concentrated site would suggest, and
+broader-coverage curtailment, informed by this ranking, is likely to be
+necessary rather than optional.
 
 ## Turbine-level retrospective validation
 

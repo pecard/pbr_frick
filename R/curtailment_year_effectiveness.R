@@ -123,7 +123,7 @@ run_curtailment_year_effectiveness <- function(fig_dir = "outputs/figures",
         )
       ) +
       theme_minimal() +
-      theme(plot.subtitle = element_text(size = 8), strip.text = element_text(face = "bold"),
+      theme(plot.subtitle = element_text(size = 11), strip.text = element_text(face = "bold"),
             legend.position = "bottom")
   })
 
