@@ -96,6 +96,27 @@ load_real_mortality_data <- function(bash_path = "data-raw/BashWPP_Weekly_PCFM_P
     read_project(djangeldy_path, "Species_name (lat.)", facility_labels[2])
   )
 
+  ## Data-quality guard: a Date_found that readxl could not parse at all
+  ## comes back as NA date, not a future date -- the guard below would
+  ## silently miss it (NA > Sys.Date() is NA, not TRUE, so the row is
+  ## never selected into future_records and stays in `d` with a NA date).
+  ## Caught in practice (2026-09): a malformed Date_found ("25.08.29026",
+  ## an extra digit inserted into the year) on a non-bat record -- harmless
+  ## there since it fails the species filter above, but the same typo class
+  ## on a real V. murinus row would otherwise slip through: case_when()'s
+  ## final TRUE ~ branch would silently label it "2026, post-curtailment"
+  ## with an unknown real date, inflating that period's count by one.
+  na_date_records <- d %>% filter(is.na(date))
+  if (nrow(na_date_records) > 0) {
+    warning(
+      "Excluded ", nrow(na_date_records), " record(s) with an unparseable Date_found ",
+      "(likely a data-entry typo in the source workbook): ",
+      paste(sprintf("%s/%s", na_date_records$project, na_date_records$turbine), collapse = "; "),
+      ". Fix the source row(s) and re-run to include the real record."
+    )
+    d <- d %>% filter(!is.na(date))
+  }
+
   ## Data-quality guard: a Date_found in the future is impossible -- a
   ## carcass cannot be found before it happens. Caught in practice
   ## (2026-09): two Bash rows dated 25/27 September 2026 whose own ISO
