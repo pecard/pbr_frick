@@ -71,6 +71,7 @@ params:
   real_yoy_summary: !r NULL
   real_forecast_summary: !r NULL
   real_n_turbines_by_project: !r NULL
+  real_turbine_hist: !r NULL
   fig_real_dashboard: ""
   fig_real_turbine_pareto: ""
   turbine_validation_correction_ratio_range: !r NULL
@@ -88,6 +89,15 @@ params:
   curtailment_year_reduction_so_far: !r NULL
   curtailment_year_full_counterfactual: !r NULL
   fig_curtailment_year: ""
+  global_nmin_area_km2: !r NULL
+  global_density_low: !r NULL
+  global_density_high: !r NULL
+  global_pbr_quantiles_by_project: !r NULL
+  global_pbr_old_new_comparison: !r NULL
+  fig_global_pbr_uncertainty: ""
+  candidate_pbr_table: !r NULL
+  candidate_pbr_effectiveness: !r NULL
+  fig_candidate_pbr: ""
 ---
 
 ```{r setup, include=FALSE}
@@ -116,6 +126,7 @@ Document history / List of changes.
 | Version 9 | Section 7 now applies the adaptive-management mechanism to the real 2025-2026 PCFM carcass data (V. murinus, GenEst-corrected), in place of the earlier synthetic illustration: year-to-date mortality vs. the annual reference, a year-over-year comparison, a forward forecast, and pre-curtailment turbine-level concentration (turbine identifiers anonymised) | 2026-09 | Paulo Cardoso |
 | Version 10 | Corrected the imposed annual thresholds throughout from 144/120 to 112/88 bats/year, the values actually used operationally, confirmed against the Blanket Curtailment Plan technical note | 2026-09 | Paulo Cardoso |
 | Version 11 | Added two turbine- and season-level checks against real operational data: a retrospective validation of an independently-derived turbine selection against the actual, lender-agreed selection documented in the Blanket Curtailment Plan; and a full operational-year (May 2026-May 2027) comparison of actual, post-curtailment mortality against a no-curtailment counterfactual built from the prior year's pattern | 2026-09 | Paulo Cardoso |
+| Version 12 | Fixed a future-dated PCFM record (data-entry typo) that had pulled Section 7.4's checkpoint 2-3 weeks ahead of the real data; clarified why Section 7.2's turbine universe differs from the official selection's; added Section 7.5, "2027 mitigation frontier": extends the PBR Monte Carlo with project-specific Nmin uncertainty (in place of the fixed reverse-engineered value used elsewhere), then compares the current thresholds against Q05/Q25/median/Q75 of the resulting distribution on identical terms -- PVA-lite risk, mortality-budgeting reduction required, and turbines needed under a literature-benchmarked curtailment-effectiveness assumption (Adams, Gulka & Williams 2021) -- as decision-support for the 2027 season, not a proposal to change the imposed thresholds | 2026-09 | Paulo Cardoso |
 
 # Context
 
@@ -1180,6 +1191,151 @@ concrete reason the next iteration of this strategy should extend
 monitoring and, where justified by the data, curtailment coverage beyond
 the current window, rather than treat the present emergency measure as a
 finished design.
+
+## 2027 mitigation frontier: candidate management references
+
+The sections above establish two things separately: Section 5.4 shows
+that PBR is far more sensitive to Nmin than to $\lambda_{max}$, and the
+Monte Carlo simulation behind Sections 2.6 and 4 propagates uncertainty
+in $s$ and $\alpha$ only, at a single, project-shared Nmin held fixed at
+`r format(params$nmin_assumed, big.mark = ",")` (the reverse-engineered
+working value from "Reverse-engineering the imposed thresholds"). This
+section closes that gap and connects the result to the operational
+turbine-level and mortality-budgeting evidence already built in this
+part of the note. Two things this section is explicitly NOT: a proposal
+to change the imposed annual thresholds, and a claim that a wider
+plausible PBR range makes 112/88 "wrong". It is a decision-support
+comparison, matching the same caution this note has applied throughout
+to the relationship between PBR's own uncertainty and any operational
+response to it.
+
+### Adding Nmin uncertainty to the Monte Carlo
+
+Nmin is redrawn here from each project's own footprint
+(`r params$global_nmin_area_km2` km2) times a plausible density range
+(`r params$global_density_low`-`r params$global_density_high`
+bats/km2, the same *Pipistrellus pipistrellus* proxy already used for
+the Nmin plausibility check in Section 2.4), rather than held fixed --
+projects are treated in isolation, not pooled into the
+`r format(params$combined_region_km2, big.mark = ",")` km2 combined-region
+scenario discussed elsewhere in this note, which remains a separate,
+unresolved question.
+
+```{r fig-global-pbr-uncertainty}
+knitr::include_graphics(params$fig_global_pbr_uncertainty)
+```
+
+```{r global-pbr-old-new-table}
+knitr::kable(
+  params$global_pbr_old_new_comparison, digits = c(0, 0, 0, 0),
+  col.names = c("Scenario", "Q05", "Median", "Q95"),
+  caption = "PBR distribution quantiles (bats/year), before and after adding project-specific Nmin uncertainty."
+)
+```
+
+Adding Nmin uncertainty widens the distribution substantially and shifts
+its centre well above the imposed thresholds: the median moves from
+`r round(params$global_pbr_old_new_comparison$median[1])` (demographic
+uncertainty only) to
+`r round(params$global_pbr_old_new_comparison$median[2])`-`r round(params$global_pbr_old_new_comparison$median[3])`
+once Nmin is allowed to vary. Under this wider distribution, the
+`r params$global_pbr_quantiles_by_project$threshold[1]` threshold at
+`r params$global_pbr_quantiles_by_project$project[1]` sits at the
+`r round(params$global_pbr_quantiles_by_project$threshold_percentile[1], 1)`th
+percentile, and the
+`r params$global_pbr_quantiles_by_project$threshold[2]` threshold at
+`r params$global_pbr_quantiles_by_project$project[2]` sits at the
+`r round(params$global_pbr_quantiles_by_project$threshold_percentile[2], 1)`th
+percentile -- both firmly in the conservative tail. As established
+throughout this note, this is a read of where the current thresholds sit
+within a distribution whose dominant uncertainty (Nmin) is not an
+independent population estimate; it is not evidence the thresholds
+should move.
+
+### What each candidate level would imply
+
+For each project, five candidate management-reference levels -- the
+current imposed threshold, and the Q05, Q25, median and Q75 of that
+project's own global PBR distribution above -- are compared on
+identical terms: where the level sits in the distribution; the Nmin it
+implies at that project's median simulated $\lambda_{max}$; the PVA-lite
+decline and quasi-extinction risk of applying that level as a constant
+annual removal (same validated Leslie structure and starting population,
+$N_0 =$ `r format(params$nmin_assumed, big.mark = ",")`, as Section 4 --
+so directly comparable to the risk figures already reported there, not
+a new population-size assumption); and the mortality-budgeting
+consequence -- the reduction required from the no-curtailment
+counterfactual annual total (Section 7.4), and how many turbines,
+ranked by pre-curtailment historical contribution (Section 7.2), a
+`r round(100 * params$candidate_pbr_effectiveness)`% per-turbine
+curtailment-effectiveness assumption (Adams, Gulka & Williams 2021, the
+same benchmark the Blanket Curtailment Plan technical note itself cites
+to justify its 6.5 m/s cut-in speed) would need to cover.
+
+```{r fig-candidate-pbr}
+knitr::include_graphics(params$fig_candidate_pbr)
+```
+
+```{r candidate-pbr-table}
+knitr::kable(
+  params$candidate_pbr_table %>%
+    dplyr::mutate(turbines = paste0(n_turbines_required, " of ", n_turbines_available)) %>%
+    dplyr::select(project, candidate, level, percentile_in_distribution, implied_nmin_at_median_lambda,
+                  pva_p_decline, required_abs_reduction, pct_reduction_needed, turbines),
+  digits = c(0, 0, 0, 1, 0, 1, 0, 0, 0),
+  col.names = c("Project", "Candidate level", "Bats/yr", "Percentile", "Implied Nmin",
+                "PVA: P(decline), %", "Reduction needed", "% reduction", "Turbines needed"),
+  caption = "Candidate management references compared on identical terms, per project."
+)
+```
+
+```{r candidate-pbr-inline}
+proj1 <- params$real_overage_summary$project[1]
+proj2 <- params$real_overage_summary$project[2]
+cand_median_1 <- params$candidate_pbr_table %>% dplyr::filter(candidate == "Median", project == proj1)
+cand_median_2 <- params$candidate_pbr_table %>% dplyr::filter(candidate == "Median", project == proj2)
+cand_current_1 <- params$candidate_pbr_table %>% dplyr::filter(candidate == "Current imposed threshold", project == proj1)
+cand_current_2 <- params$candidate_pbr_table %>% dplyr::filter(candidate == "Current imposed threshold", project == proj2)
+```
+
+The starkest result is the PVA risk column, not the turbine counts. At
+the median candidate level, 25-year decline probability reaches
+`r round(cand_median_1$pva_p_decline)`% at `r proj1` and
+`r round(cand_median_2$pva_p_decline)`% at `r proj2` -- far higher than
+at the current threshold. This is not a contradiction of the wider
+distribution above; it is the direct consequence of the median level
+being calibrated to a *larger* implied Nmin
+(`r format(round(cand_median_1$implied_nmin_at_median_lambda), big.mark = ",")`)
+than the PVA's own starting population, held fixed throughout this note
+at the more conservative
+`r format(params$nmin_assumed, big.mark = ",")`. Put plainly: moving the
+management reference toward the centre of the plausible PBR range is
+only as safe as the assumption that the population is actually that
+much larger -- an assumption this note has not established, and
+precisely the reason the Nmin axis, not $\lambda_{max}$, is the
+question that would need to be resolved before any such move could be
+considered.
+
+The turbine counts in this table are a like-for-like comparison ACROSS
+candidate levels under one uniform assumption, not a substitute for the
+turbines actually selected and curtailed. At the current threshold, they
+are noticeably larger than the real, already-executed selection
+(`r cand_current_1$n_turbines_required` of `r cand_current_1$n_turbines_available`
+modelled vs. 17 of 68 actually selected at `r proj1`;
+`r cand_current_2$n_turbines_required` of `r cand_current_2$n_turbines_available`
+modelled vs. 7 of 27 actually selected at `r proj2`, Sections 7.2-7.3) --
+a concrete, quantified confirmation that the real selection was never
+dimensioned to bring full-year mortality under the annual reference; it
+targeted a defined 50% reduction in a baseline season as an emergency
+measure. Reconciling that gap -- what it would actually take, in
+turbines and mitigation coverage, to sit reliably under the current
+reference across a full year -- is the mortality-budgeting exercise for
+the 2027 season this table is built to inform, not a recommendation
+to curtail 48 turbines outright: the real next step is testing whether a
+smaller, better-targeted set (informed by a second baseline season, and
+by which turbines the current 17/7 have already shown to be effective)
+can close most of the gap at a materially lower operational cost than
+this uniform ranking implies.
 
 ## What this shows, and what still needs to happen
 

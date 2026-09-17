@@ -25,6 +25,8 @@ source("R/load_real_mortality_data.R")
 source("R/adaptive_management_real.R")
 source("R/turbine_selection_validation.R")
 source("R/curtailment_year_effectiveness.R")
+source("R/global_pbr_uncertainty.R")
+source("R/candidate_pbr_reference.R")
 source("R/pbr_report.R")
 source(file.path("inputs", pbr_settings_file))
 
@@ -47,18 +49,30 @@ if (!file.exists(official_bash_path) || !file.exists(official_djangeldy_path)) {
   )
 }
 
+pbr_params <- run_pbr_analysis(fig_dir = "outputs/figures")
 adaptive_params <- run_adaptive_management_real(fig_dir = "outputs/figures", bash_path = bash_data_path, djangeldy_path = djangeldy_data_path)
 turbine_validation_params <- run_turbine_validation(
   fig_dir = "outputs/figures", bash_path = bash_data_path, djangeldy_path = djangeldy_data_path,
   official_bash_path = official_bash_path, official_djangeldy_path = official_djangeldy_path
 )
 curtailment_year_params <- run_curtailment_year_effectiveness(fig_dir = "outputs/figures", bash_path = bash_data_path, djangeldy_path = djangeldy_data_path)
+global_pbr_params <- run_global_pbr_uncertainty(
+  fig_dir = "outputs/figures", nmin_assumed = pbr_params$nmin_assumed, old_pbr_quantiles = pbr_params$pbr_quantiles
+)
+candidate_pbr_params <- run_candidate_pbr_reference(
+  fig_dir = "outputs/figures", nmin_assumed = pbr_params$nmin_assumed,
+  global_pbr_quantiles_by_project = global_pbr_params$global_pbr_quantiles_by_project,
+  real_turbine_hist = adaptive_params$real_turbine_hist,
+  curtailment_year_full_counterfactual = curtailment_year_params$curtailment_year_full_counterfactual
+)
 
 report_params <- c(
-  run_pbr_analysis(fig_dir = "outputs/figures"),
+  pbr_params,
   adaptive_params,
   turbine_validation_params,
-  curtailment_year_params
+  curtailment_year_params,
+  global_pbr_params,
+  candidate_pbr_params
 )
 
 build_pbr_report(

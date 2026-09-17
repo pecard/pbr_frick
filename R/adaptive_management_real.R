@@ -184,6 +184,7 @@ run_adaptive_management_real <- function(fig_dir,
       n_turbines_focus = sapply(turbine_pareto_by_project, `[[`, "n_focus"),
       n_turbines_top80 = sapply(turbine_pareto_by_project, `[[`, "n_top80")
     ),
+    real_turbine_hist = turbine_hist,
     fig_real_dashboard = fig_real_dashboard,
     fig_real_turbine_pareto = fig_real_turbine_pareto
   )
