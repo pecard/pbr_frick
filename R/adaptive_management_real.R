@@ -25,6 +25,22 @@
 ## pre-curtailment year (or more) becomes available.
 ##
 
+## Installs patchwork automatically if missing (used below to stack the
+## per-project turbine pareto plots into one figure), rather than
+## requiring a manual install.packages() step first -- same pattern as
+## the optional 3D-figure packages in R/pbr_analysis.R. Safe to leave in:
+## requireNamespace() is near-instant once the package is installed.
+if (!requireNamespace("patchwork", quietly = TRUE)) {
+  message("Installing missing package needed to combine the turbine pareto figures: patchwork...")
+  tryCatch(
+    install.packages("patchwork"),
+    error = function(e) stop(
+      "Could not install 'patchwork' automatically (", conditionMessage(e),
+      "). Install it manually (install.packages(\"patchwork\")) and re-run."
+    )
+  )
+}
+
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2); library(lubridate); library(patchwork) })
 
 run_adaptive_management_real <- function(fig_dir,

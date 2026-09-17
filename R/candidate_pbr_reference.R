@@ -38,6 +38,20 @@
 ## a replacement for it -- cross-referenced explicitly in the report text.
 ##
 
+## Installs ggrepel automatically if missing (used below for non-
+## overlapping labels on the candidate-level figure) -- same pattern as
+## the optional 3D-figure packages in R/pbr_analysis.R.
+if (!requireNamespace("ggrepel", quietly = TRUE)) {
+  message("Installing missing package needed for the candidate-PBR figure labels: ggrepel...")
+  tryCatch(
+    install.packages("ggrepel"),
+    error = function(e) stop(
+      "Could not install 'ggrepel' automatically (", conditionMessage(e),
+      "). Install it manually (install.packages(\"ggrepel\")) and re-run."
+    )
+  )
+}
+
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2); library(ggrepel) })
 
 ## Per-turbine curtailment effectiveness default: 0.63, the published
