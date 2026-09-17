@@ -16,23 +16,22 @@
 ##    pre-curtailment year available) as the reference, shifted forward
 ##    exactly one year week-by-week from the curtailment start date.
 ## 2. It does not claim the real, actually-recorded reduction extends
-##    through August. The real PCFM data available in this session's
-##    data-raw/pcfm_bat_summary.xlsx currently runs only to 27 May 2026 --
-##    about three weeks into the curtailment response -- so the "reduction
-##    achieved so far" figures below cover only that window, honestly
-##    reported as such, not the full May-August period Paulo described.
-##    This is the first thing to refresh once later 2026 records arrive.
+##    through August: this checkpoint covers however much of the response
+##    window the current weekly workbooks (data-raw/*_Weekly_PCFM_PBR.xlsx)
+##    happen to contain when this is run, honestly reported as such rather
+##    than assumed to be the full May-August period Paulo described.
 ##
 
 suppressPackageStartupMessages({ library(dplyr); library(lubridate); library(ggplot2) })
 
 run_curtailment_year_effectiveness <- function(fig_dir = "outputs/figures",
-                                                xlsx_path = "data-raw/pcfm_bat_summary.xlsx") {
+                                                bash_path = "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx",
+                                                djangeldy_path = "data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx") {
 
   dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
   fig_dir <- normalizePath(fig_dir, winslash = "/")
 
-  d <- load_real_mortality_data(xlsx_path)
+  d <- load_real_mortality_data(bash_path, djangeldy_path)
   project_thresholds <- tibble::tibble(project = facility_labels, threshold = pbr_thresholds$threshold)
 
   n_weeks <- 53

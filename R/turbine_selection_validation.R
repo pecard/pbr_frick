@@ -26,20 +26,22 @@
 ## so the report can compare "my rank" against "their rank" for the same
 ## anonymised turbine without ever naming it.
 ##
-## Known data-coverage caveat: the raw carcass file's earliest record is
-## 2025-04-22 (Bash) and 2025-04-09 (Djangeldy) -- so this replication
-## necessarily starts a few weeks into Bash's nominal April 2025 window,
-## and is missing essentially all of Djangeldy's nominal March 2025
-## window (no records exist before 9 April). This is reported explicitly
-## alongside the comparison, not smoothed over -- it is the single most
-## likely reason for any turbine-level mismatch between the two rankings,
-## independent of the x4-vs-real-GenEst correction-factor question below.
+## Known data-coverage caveat: the raw carcass file's earliest record may
+## fall after the nominal window start (this has been the case for both
+## projects at some point -- Bash's records starting partway into its
+## nominal April 2025 window, Djangeldy's missing essentially all of its
+## nominal March 2025 window). The actual data-start date used is reported
+## explicitly alongside the comparison below, not assumed -- it is one of
+## the two likely reasons for any turbine-level mismatch between the two
+## rankings, the other being the x4-vs-real-GenEst correction-factor
+## question addressed further down.
 ##
 
-suppressPackageStartupMessages({ library(dplyr); library(readxl); library(ggplot2) })
+suppressPackageStartupMessages({ library(dplyr); library(ggplot2) })
 
 run_turbine_validation <- function(fig_dir = "outputs/figures",
-                                    xlsx_path = "data-raw/pcfm_bat_summary.xlsx",
+                                    bash_path = "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx",
+                                    djangeldy_path = "data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx",
                                     official_bash_path = "data-raw/official_turbine_selection_bash.csv",
                                     official_djangeldy_path = "data-raw/official_turbine_selection_djangeldy.csv") {
 
@@ -58,15 +60,13 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
   pad_dzh <- function(x) x  # Djangeldy raw codes are already zero-padded (DZH01, DZH03, ...)
 
   ## ---- My own replication: raw carcasses x4, same baseline windows ---------
-  read_raw_project <- function(sheet, species_col) {
-    read_excel(xlsx_path, sheet = sheet) %>%
-      rename(species = !!species_col) %>%
-      filter(species == "Vespertilio murinus") %>%
-      transmute(turbine = Turbine, date = as.Date(Date_found))
-  }
-
-  bash_raw   <- read_raw_project("Carcass_BSH", "Species_name") %>% mutate(turbine = pad_bsh(turbine))
-  dzh_raw    <- read_raw_project("Carcass_DGY", "Species_name (lat.)") %>% mutate(turbine = pad_dzh(turbine))
+  ## Reuses load_real_mortality_data() (R/load_real_mortality_data.R), which
+  ## already applies the Group == "Bat" / Scheduled_search == "Yes" /
+  ## Inside_search_plot == "Yes" / species == "V. murinus" filters -- rather
+  ## than re-implementing that filtering logic here.
+  d_all <- load_real_mortality_data(bash_path, djangeldy_path)
+  bash_raw <- d_all %>% filter(project == facility_labels[1]) %>% select(turbine, date) %>% mutate(turbine = pad_bsh(turbine))
+  dzh_raw  <- d_all %>% filter(project == facility_labels[2]) %>% select(turbine, date) %>% mutate(turbine = pad_dzh(turbine))
 
   bash_window <- c(as.Date("2025-04-01"), as.Date("2025-08-31"))
   dzh_window  <- c(as.Date("2025-03-01"), as.Date("2025-08-31"))

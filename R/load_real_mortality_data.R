@@ -1,10 +1,25 @@
 ##
-## Loads real weekly PCFM carcass data for V. murinus from
-## data-raw/pcfm_bat_summary.xlsx (Paulo, 2026-09) -- gitignored, never
-## committed; this script only reads it. Only the Carcass_BSH and
-## Carcass_DGY sheets are used, per Paulo's instruction (Bash/Djangeldy/
-## BCKP_* are weekly all-species/activity summaries and backups, not the
-## per-carcass record this analysis needs).
+## Loads real weekly PCFM carcass data for V. murinus from the two
+## per-project weekly workbooks Paulo receives (2026-09) --
+## data-raw/BashWPP_Weekly_PCFM_PBR.xlsx and
+## data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx, both gitignored, never
+## committed; this script only reads them. Both files are meant to be
+## overwritten in place each week with the latest export (generic names,
+## no week number), so this loader always reads "the current file", not a
+## fixed historical snapshot.
+##
+## Each workbook's "Carcass_ID" sheet holds every carcass search record
+## (all taxa, all search types), not just the usable bat records for this
+## analysis -- three filters select the right subset:
+##   Group == "Bat": excludes birds and other taxa recorded in the same log;
+##   Scheduled_search == "Yes": excludes carcasses found incidentally
+##     outside a scheduled PCFM search, which are not part of the
+##     standardised search effort GenEst-style correction assumes;
+##   Inside_search_plot == "Yes": excludes carcasses found outside the
+##     turbine's defined search plot, for the same reason.
+## (Paulo, 2026-09.) The species filter to V. murinus itself is applied
+## after these three, on top of the same species-name-column difference
+## between files already handled below.
 ##
 ## Project_Name in the raw data is the real facility name ("Bash",
 ## "Djangeldy"); mapped here to the same facility_labels/threshold order
@@ -25,16 +40,22 @@ suppressPackageStartupMessages({ library(readxl); library(dplyr); library(lubrid
 genest_correction_factor <- 4
 curtailment_start_date <- as.Date("2026-05-05")
 
-load_real_mortality_data <- function(xlsx_path = "data-raw/pcfm_bat_summary.xlsx") {
-  if (!file.exists(xlsx_path)) {
-    stop("Real PCFM data not found at '", xlsx_path, "'. This file is gitignored and local-only -- ",
-         "place Paulo's pcfm_bat_summary.xlsx there to run the real operational analysis.")
+load_real_mortality_data <- function(bash_path = "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx",
+                                      djangeldy_path = "data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx") {
+  if (!file.exists(bash_path)) {
+    stop("Real PCFM data not found at '", bash_path, "'. This file is gitignored and local-only -- ",
+         "place Paulo's BashWPP_Weekly_PCFM_PBR.xlsx there to run the real operational analysis.")
+  }
+  if (!file.exists(djangeldy_path)) {
+    stop("Real PCFM data not found at '", djangeldy_path, "'. This file is gitignored and local-only -- ",
+         "place Paulo's DjangeldyWPP_Weekly_PCFM_PBR.xlsx there to run the real operational analysis.")
   }
 
-  read_project <- function(sheet, species_col, real_name, project_label) {
-    read_excel(xlsx_path, sheet = sheet) %>%
+  read_project <- function(xlsx_path, species_col, project_label) {
+    read_excel(xlsx_path, sheet = "Carcass_ID") %>%
       rename(species = !!species_col) %>%
-      filter(species == "Vespertilio murinus") %>%
+      filter(Group == "Bat", Scheduled_search == "Yes", Inside_search_plot == "Yes",
+             species == "Vespertilio murinus") %>%
       transmute(
         project = project_label,
         turbine = Turbine,
@@ -45,8 +66,8 @@ load_real_mortality_data <- function(xlsx_path = "data-raw/pcfm_bat_summary.xlsx
   }
 
   bind_rows(
-    read_project("Carcass_BSH", "Species_name", "Bash", facility_labels[1]),
-    read_project("Carcass_DGY", "Species_name (lat.)", "Djangeldy", facility_labels[2])
+    read_project(bash_path, "Species_name", facility_labels[1]),
+    read_project(djangeldy_path, "Species_name (lat.)", facility_labels[2])
   ) %>%
     mutate(
       period = case_when(

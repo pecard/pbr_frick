@@ -963,22 +963,30 @@ knitr::kable(
 )
 ```
 
+```{r real-yoy-inline}
+yoy1 <- params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[1]]
+yoy2 <- params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[2]]
+yoy_asymmetry_note <- if (yoy2 >= 0) {
+  "an increase, the opposite direction from the first project, and the more actionable signal of the two: it suggests the current prescription at that project has not yet delivered a comparable improvement"
+} else if (abs(yoy2) < abs(yoy1) / 2) {
+  "also a reduction, but markedly smaller in magnitude than the first project's -- worth watching, since it suggests the current prescription is delivering a smaller benefit at that project"
+} else {
+  "a reduction of broadly comparable magnitude to the first project's"
+}
+```
+
 Read alongside the year-to-date total, the year-over-year comparison
 gives a more differentiated picture. `r params$real_overage_summary$project[1]`'s
 corrected mortality through the same point in the season is
-`r round(abs(params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[1]]))`%
-`r if (params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[1]] < 0) "lower" else "higher"`
+`r round(abs(yoy1))`% `r if (yoy1 < 0) "lower" else "higher"`
 than the equivalent period in 2025, consistent with curtailment having a
 material effect even though the annual reference was still exceeded.
 `r params$real_overage_summary$project[2]`'s corrected mortality through
-the same point is
-`r round(abs(params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[2]]))`%
-`r if (params$real_yoy_summary$pct_change[params$real_yoy_summary$project == params$real_overage_summary$project[2]] < 0) "lower" else "higher"`
-than in 2025 -- a signal in the opposite direction, and the more
-actionable one of the two: it suggests the current prescription at that
-project has not yet delivered a comparable improvement, which is exactly
-the kind of asymmetry between facilities that a shared annual figure,
-looked at only in aggregate, would not surface.
+the same point is `r round(abs(yoy2))`%
+`r if (yoy2 < 0) "lower" else "higher"` than in 2025 --
+`r yoy_asymmetry_note`, which is exactly the kind of asymmetry between
+facilities that a shared annual figure, looked at only in aggregate,
+would not surface.
 
 The forward-looking forecast (projected year-end total under the current,
 post-curtailment regime continuing unchanged) is included for
@@ -1084,13 +1092,13 @@ same date the following year -- explicitly framed, as this note's
 adaptive-management proposal is throughout, as evaluating what began as
 an emergency response so it can be refined into a longer-term strategy.
 
-The real PCFM records available for this analysis currently run only to
-`r params$curtailment_year_data_max_date` -- about
-`r params$curtailment_year_checkpoint_week` weeks into the curtailment
-response, not the full May-August window. What follows should be read as
-a first checkpoint on that basis, not a complete assessment of the
-emergency response; it is the first thing to refresh once later 2026
-records become available.
+The real PCFM records available for this analysis currently run to
+`r params$curtailment_year_data_max_date` --
+`r params$curtailment_year_checkpoint_week` weeks into the operational
+year. What follows should still be read as a checkpoint rather than a
+final verdict on the emergency response, and is the first thing to
+refresh as later 2026 records continue to accumulate, particularly once
+the season's autumn/winter tail is covered.
 
 ```{r fig-curtailment-year}
 knitr::include_graphics(params$fig_curtailment_year)
@@ -1108,23 +1116,26 @@ knitr::kable(
 )
 ```
 
-The two projects diverge sharply over this short window.
-`r params$curtailment_year_reduction_so_far$project[1]` shows a large
-apparent reduction
-(`r round(params$curtailment_year_reduction_so_far$pct_reduction[1])`%,
-`r round(params$curtailment_year_reduction_so_far$avoided_fatalities[1])`
-fatalities avoided against the counterfactual), consistent with the
-year-over-year comparison above.
-`r params$curtailment_year_reduction_so_far$project[2]` shows no
-reduction over the same short window -- the actual corrected count is
-`r if (params$curtailment_year_reduction_so_far$pct_reduction[2] < 0) "higher than" else "lower than"`
-the counterfactual. Given the very small counts involved this early in
-the season (a handful of carcasses at either project), this divergence
-should not yet be read as a definitive difference in curtailment
-effectiveness between the two projects -- it is exactly the kind of
-early, noisy signal the year-over-year comparison above already flagged
-for `r params$curtailment_year_reduction_so_far$project[2]`, now visible
-again in a second, independently-constructed comparison.
+`r params$curtailment_year_reduction_so_far$project[1]`
+`r if (params$curtailment_year_reduction_so_far$pct_reduction[1] >= 0) "shows a reduction of" else "shows an increase of"`
+`r round(abs(params$curtailment_year_reduction_so_far$pct_reduction[1]))`%
+(`r round(abs(params$curtailment_year_reduction_so_far$avoided_fatalities[1]))`
+fatalities `r if (params$curtailment_year_reduction_so_far$pct_reduction[1] >= 0) "avoided against" else "in excess of"`
+the no-curtailment counterfactual), consistent with the year-over-year
+comparison above.
+`r params$curtailment_year_reduction_so_far$project[2]`
+`r if (params$curtailment_year_reduction_so_far$pct_reduction[2] >= 0) "shows a reduction of" else "shows an increase of"`
+`r round(abs(params$curtailment_year_reduction_so_far$pct_reduction[2]))`%
+(`r round(abs(params$curtailment_year_reduction_so_far$avoided_fatalities[2]))`
+fatalities `r if (params$curtailment_year_reduction_so_far$pct_reduction[2] >= 0) "avoided against" else "in excess of"`
+the counterfactual) over the same window. With
+`r params$curtailment_year_reduction_so_far$weeks_of_real_data[1]` weeks of
+real 2026 data now behind this comparison -- most of a growing season,
+not just its opening weeks -- this is a materially firmer read than an
+early-season snapshot would give, though it should still be read
+alongside the year-over-year comparison above rather than in isolation,
+and will keep firming up as the operational year's remaining weeks
+accumulate.
 
 ```{r curtailment-year-counterfactual-table}
 knitr::kable(
@@ -1179,12 +1190,13 @@ The two checks above add a further, complementary layer: the turbine
 validation shows that an independent, project-level replication of the
 real turbine selection is directionally sound but not a substitute for
 the real, search-effort-specific analysis behind a lender-facing
-decision; and the operational-year comparison shows that even a partial-
-season read of the emergency response already distinguishes a project
-where curtailment appears to be working from one where it does not yet,
-on this evidence, show a comparable effect -- while also making explicit
-that the current curtailment window leaves part of the operational year
-uncovered. Both checks should be re-run as later 2026 records accumulate,
-particularly once real data extend through the full May-August response
-window and beyond, before either is treated as a final verdict on the
-strategy's effectiveness.
+decision; and the operational-year comparison, now resting on
+`r params$curtailment_year_reduction_so_far$weeks_of_real_data[1]` weeks
+of real 2026 data, gives a season-scale read on whether the emergency
+response is reducing mortality relative to the no-curtailment
+counterfactual at each project -- while also making explicit that the
+current curtailment window leaves part of the operational year
+uncovered. Both checks should keep being re-run as later 2026 records
+accumulate, particularly once the season's autumn/winter tail is
+covered, before either is treated as a final verdict on the strategy's
+effectiveness.

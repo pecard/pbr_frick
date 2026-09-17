@@ -27,12 +27,14 @@
 
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2); library(lubridate) })
 
-run_adaptive_management_real <- function(fig_dir, xlsx_path = "data-raw/pcfm_bat_summary.xlsx") {
+run_adaptive_management_real <- function(fig_dir,
+                                          bash_path = "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx",
+                                          djangeldy_path = "data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx") {
 
   dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
   fig_dir <- normalizePath(fig_dir, winslash = "/")
 
-  d <- load_real_mortality_data(xlsx_path)
+  d <- load_real_mortality_data(bash_path, djangeldy_path)
   project_thresholds <- tibble::tibble(project = facility_labels, threshold = pbr_thresholds$threshold)
   weeks_full <- tibble::tibble(iso_week = 1:53)
   curtailment_week <- lubridate::isoweek(curtailment_start_date)

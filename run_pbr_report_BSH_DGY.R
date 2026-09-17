@@ -28,16 +28,17 @@ source("R/curtailment_year_effectiveness.R")
 source("R/pbr_report.R")
 source(file.path("inputs", pbr_settings_file))
 
-real_data_path <- "data-raw/pcfm_bat_summary.xlsx"
+bash_data_path <- "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx"
+djangeldy_data_path <- "data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx"
 official_bash_path <- "data-raw/official_turbine_selection_bash.csv"
 official_djangeldy_path <- "data-raw/official_turbine_selection_djangeldy.csv"
 
-if (!file.exists(real_data_path)) {
+if (!file.exists(bash_data_path) || !file.exists(djangeldy_data_path)) {
   message(
-    "Real PCFM data not found at '", real_data_path, "' (gitignored, local-only) -- ",
-    "section 7 will need it to render. See R/adaptive_management_demo.R for the synthetic version if only that is needed."
+    "Real PCFM data not found at '", bash_data_path, "' / '", djangeldy_data_path, "' (gitignored, local-only) -- ",
+    "section 7 will need them to render. See R/adaptive_management_demo.R for the synthetic version if only that is needed."
   )
-  stop("Missing '", real_data_path, "': place Paulo's pcfm_bat_summary.xlsx there before rendering the report.")
+  stop("Missing the weekly PCFM workbooks: place Paulo's BashWPP_Weekly_PCFM_PBR.xlsx and DjangeldyWPP_Weekly_PCFM_PBR.xlsx in data-raw/ before rendering the report.")
 }
 if (!file.exists(official_bash_path) || !file.exists(official_djangeldy_path)) {
   stop(
@@ -46,12 +47,12 @@ if (!file.exists(official_bash_path) || !file.exists(official_djangeldy_path)) {
   )
 }
 
-adaptive_params <- run_adaptive_management_real(fig_dir = "outputs/figures", xlsx_path = real_data_path)
+adaptive_params <- run_adaptive_management_real(fig_dir = "outputs/figures", bash_path = bash_data_path, djangeldy_path = djangeldy_data_path)
 turbine_validation_params <- run_turbine_validation(
-  fig_dir = "outputs/figures", xlsx_path = real_data_path,
+  fig_dir = "outputs/figures", bash_path = bash_data_path, djangeldy_path = djangeldy_data_path,
   official_bash_path = official_bash_path, official_djangeldy_path = official_djangeldy_path
 )
-curtailment_year_params <- run_curtailment_year_effectiveness(fig_dir = "outputs/figures", xlsx_path = real_data_path)
+curtailment_year_params <- run_curtailment_year_effectiveness(fig_dir = "outputs/figures", bash_path = bash_data_path, djangeldy_path = djangeldy_data_path)
 
 report_params <- c(
   run_pbr_analysis(fig_dir = "outputs/figures"),
