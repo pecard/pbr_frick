@@ -1085,6 +1085,30 @@ knitr::kable(
 knitr::include_graphics(params$fig_turbine_validation)
 ```
 
+Each point is one turbine, plotted by its rank under each method (rank 1
+= highest estimated mortality); a point sitting on the dotted diagonal is
+ranked identically by both. The dashed lines are each method's OWN
+50%-cumulative-mortality cutoff, not a shared value -- the vertical line
+marks where the official ranking stops selecting (turbine 17 at
+`r params$real_overage_summary$project[1]`, 7 at
+`r params$real_overage_summary$project[2]`), the horizontal line marks
+where this replication's own ranking stops. Together they split the
+figure into four zones: turbines both methods would curtail
+(bottom-left, green), turbines only the official selection would curtail
+(red), turbines only this replication would flag (blue), and turbines
+neither would (grey). At `r params$real_overage_summary$project[1]`, the
+green cluster in the bottom-left corner is dense and well separated from
+the rest -- a robust core of clearly high-risk turbines that either
+method identifies, which is reassuring in itself (it is not an artefact
+of which method happens to be used). The red and blue points sit right
+around the cutoff lines, not scattered through the middle of the
+distribution: the two methods disagree specifically at the margin, where
+a selection decision is actually made, not about which turbines are
+obviously high- or low-risk. The pattern is looser at
+`r params$real_overage_summary$project[2]` (a less separated green
+cluster), consistent with the weaker recovery already noted in the table
+above.
+
 The independent replication recovers most, but not all, of the officially
 selected turbines at both projects, and captures a larger share of their
 combined estimated mortality than of their count alone (turbines it
