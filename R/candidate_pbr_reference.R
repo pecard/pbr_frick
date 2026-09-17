@@ -203,7 +203,8 @@ run_candidate_pbr_reference <- function(fig_dir, nmin_assumed, global_pbr_quanti
       scale_colour_viridis_c(option = "C", name = "PVA-lite:\nP(decline), %") +
       scale_size_continuous(name = "% reduction\nneeded", range = c(2, 7)) +
       labs(
-        x = "Turbines required (ranked by pre-curtailment contribution, 70% assumed effectiveness)",
+        x = paste0("Turbines required (ranked by pre-curtailment contribution, ",
+                    round(100 * curtailment_effectiveness), "% assumed effectiveness)"),
         y = "Candidate management reference (bats/year)",
         title = "2027 mitigation frontier: candidate reference vs. turbines required vs. biological risk",
         subtitle = "Each point is one candidate level (current threshold, and Q05/Q25/median/Q75 of the global Nmin+demographic PBR distribution)"
