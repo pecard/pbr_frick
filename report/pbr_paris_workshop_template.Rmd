@@ -1,0 +1,141 @@
+---
+title: "Bat Mortality Mitigation -- Illustrative Scenario (`r params$project_ref`)"
+output:
+  word_document:
+    toc: false
+params:
+  project_ref: ""
+  species_common_name: ""
+  threshold: !r NULL
+  n_turbines_total: !r NULL
+  n_turbines_curtailed_target: !r NULL
+  correction_factor: !r NULL
+  nmin_assumed: !r NULL
+  pbr_corrected_fr: !r NULL
+  turbine_hist: !r NULL
+  effectiveness: !r NULL
+  summary_tbl: !r NULL
+  fig_turbine_pareto: ""
+  fig_effectiveness: ""
+  turbine_validation_comparison: !r NULL
+  turbine_validation_overlap_n: !r NULL
+  turbine_validation_overlap_pct: !r NULL
+  fig_turbine_validation: ""
+  turbine_classification: !r NULL
+  turbine_classification_summary: !r NULL
+  turbine_classification_core_residual_n: !r NULL
+  turbine_classification_candidates: !r NULL
+  turbine_classification_weak_pct: !r NULL
+  turbine_classification_boundary_value: !r NULL
+  fig_turbine_classification: ""
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+options(knitr.graphics.rel_path = FALSE)
+```
+
+*Illustrative scenario prepared for the Paris Expert Workshop. `r params$project_ref`,
+`r params$n_turbines_total` WTG, and every mortality figure below are
+fictional and fully simulated -- none of the numbers in this document
+are drawn from, or derived by rescaling, any real project's data. The
+method shown (PBR reference, turbine-level targeting, response
+effectiveness, adaptive classification) is the one applied to real
+projects; only the numbers are synthetic.*
+
+# 1. Reference threshold
+
+An annual mortality reference of `r params$threshold` fatalities/year is
+assumed for `r params$species_common_name` at `r params$project_ref`
+(`r params$n_turbines_total` WTG), following the PBR framework of Frick
+et al. (2026). At the framework's benchmark growth-rate values, this
+implies:
+
+```{r pbr-table}
+knitr::kable(
+  params$pbr_corrected_fr,
+  digits = c(2, 1),
+  col.names = c("lambda_max benchmark", "Implied PBR")
+)
+```
+
+Correction of raw carcass counts to estimated mortality uses an
+illustrative detection-correction factor of
+`r sprintf("%.1f", params$correction_factor)`x throughout.
+
+# 2. Where mortality concentrates
+
+```{r fig-pareto}
+knitr::include_graphics(params$fig_turbine_pareto)
+```
+
+Ranking turbines by Baseline-period mortality and selecting the minimum
+set covering half of cumulative mortality lands on
+`r sum(params$turbine_hist$curtailed)` of `r params$n_turbines_total`
+turbines -- close to the
+`r params$n_turbines_curtailed_target`-turbine target for this scenario,
+emerging from the same rule used operationally, not fixed in advance.
+
+```{r fig-validation}
+knitr::include_graphics(params$fig_turbine_validation)
+```
+
+Because this scenario is simulated, the turbines' true underlying risk is
+known and can be compared against the ranking actually used for
+curtailment: `r params$turbine_validation_overlap_n` of
+`r sum(params$turbine_hist$curtailed)`
+(`r params$turbine_validation_overlap_pct`%) of the turbines selected on
+observed mortality are also among the true highest-risk turbines --
+illustrating that an observed-data ranking recovers most, not all, of the
+underlying risk pattern, which is the expected behaviour of the method
+rather than a shortcoming of this particular selection.
+
+# 3. Response effectiveness
+
+```{r fig-effectiveness}
+knitr::include_graphics(params$fig_effectiveness)
+```
+
+```{r summary-table}
+knitr::kable(params$summary_tbl, col.names = c("Metric", "Value"))
+```
+
+Measured against a no-response counterfactual built from the Baseline
+period's own pattern, the response period ends the year below the
+annual reference -- the same qualitative result obtained on the real
+projects this method was developed for.
+
+# 4. Outlook: next-period turbine classification
+
+```{r fig-classification}
+knitr::include_graphics(params$fig_turbine_classification)
+```
+
+```{r classification-table}
+knitr::kable(params$turbine_classification_summary)
+```
+
+Core turbines (already curtailed) show
+`r params$turbine_classification_core_residual_n` with a recorded
+fatality since the response began -- a signal to review intensification,
+never grounds for relaxation. `r length(params$turbine_classification_candidates)`
+turbine(s) outside the curtailed set meet the corroboration bar for
+expansion (Baseline mortality comparable to the curtailed turbines' and
+a confirmed record since the response began). The 2025-only baseline is
+never averaged with post-response data, and low post-response mortality
+at an already-curtailed turbine is read as the intervention working, not
+as evidence that turbine is low-risk.
+
+# What this illustrates
+
+- A single annual reference translates into turbine-level targeting via
+  one consistent rule (minimum set covering half of cumulative
+  mortality), not a separate judgement call per turbine.
+- Observed-data selection recovers most, but rarely all, of the true
+  risk ranking -- an expected property of the method, not a defect.
+- Response effectiveness is read against an explicit counterfactual, not
+  simply "was the annual reference exceeded."
+- Expansion candidates require corroboration from both the untreated
+  baseline and confirmed post-response recurrence; residual fatalities
+  at curtailed turbines are monitored, never treated as grounds to
+  relax mitigation there.
