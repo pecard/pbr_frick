@@ -38,6 +38,7 @@ source("R/curtailment_year_effectiveness.R")
 source("R/global_pbr_uncertainty.R")
 source("R/candidate_pbr_reference.R")
 source("R/turbine_2027_classification.R")
+source("R/section_interpretation_checks.R")
 source("R/pbr_report.R")
 
 bash_data_path <- "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx"
@@ -89,6 +90,26 @@ report_params <- c(
   candidate_pbr_params,
   turbine_2027_params
 )
+
+## ---- Support for revising "What this shows, and what still needs to
+## happen" (report/pbr_technical_note_template.Rmd) -- that section is
+## hand-written prose that does NOT re-derive from report_params, so it
+## needs re-checking by eye whenever the underlying data materially
+## changes. This computes the current facts each of its claims rests on
+## (not rendered in either docx) so revising it starts from up-to-date
+## numbers instead of trusting the previous wording. Read the printed
+## table below, or outputs/section_interpretation_checklist.csv, before
+## touching that section.
+interpretation_checks <- check_section_interpretation_claims(
+  turbine_validation_overlap = turbine_validation_params$turbine_validation_overlap,
+  curtailment_year_reduction_so_far = curtailment_year_params$curtailment_year_reduction_so_far,
+  curtailment_year_checkpoint_week = curtailment_year_params$curtailment_year_checkpoint_week,
+  bash_path = bash_data_path, djangeldy_path = djangeldy_data_path
+)
+message("\n---- Section 'What this shows, and what still needs to happen': claim checklist ----")
+print(as.data.frame(interpretation_checks$section_interpretation_checklist), row.names = FALSE)
+write.csv(interpretation_checks$section_interpretation_checklist,
+          "outputs/section_interpretation_checklist.csv", row.names = FALSE)
 
 build_pbr_report(
   output_file    = output_file,
