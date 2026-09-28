@@ -21,6 +21,16 @@ suppressPackageStartupMessages({
 source("R/pbr_functions.R")
 source("R/plotly_screenshot.R")
 
+## geom_contour()'s `breaks` must be finite numbers. A break value falling
+## outside a panel's data range is normal and harmless (that panel simply
+## gets no contour line, e.g. "Zero contours were generated"); a genuinely
+## non-finite break (NA/NaN/Inf) is not, and different ggplot2/isoband
+## versions handle it differently -- some warn and skip, others error out
+## of seq()/range() deep in their internal breaks computation. Filtering
+## non-finite values here keeps every geom_contour() call below robust to
+## that version difference regardless of which one produced it.
+finite_breaks <- function(x) x[is.finite(x)]
+
 run_pbr_analysis <- function(fig_dir) {
 
   dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
@@ -138,7 +148,7 @@ run_pbr_analysis <- function(fig_dir) {
   lambda_contour <- function() {
     list(
       geom_contour(aes(z = lambda_max, colour = after_stat(factor(level))),
-                   breaks = lambda_max_benchmarks, linewidth = 0.5),
+                   breaks = finite_breaks(lambda_max_benchmarks), linewidth = 0.5),
       scale_colour_manual(name = "Benchmark", values = benchmark_colours)
     )
   }
@@ -211,7 +221,7 @@ run_pbr_analysis <- function(fig_dir) {
     ggplot(surface_grid, aes(x = s, y = alpha)) +
       geom_raster(aes(fill = PBR), interpolate = TRUE) +
       geom_contour(aes(z = PBR, colour = after_stat(factor(level))),
-                   breaks = pbr_thresholds$threshold, linewidth = 0.4) +
+                   breaks = finite_breaks(pbr_thresholds$threshold), linewidth = 0.4) +
       facet_wrap(~Fr_label, nrow = 2, ncol = 2) +
       scale_fill_viridis_c(name = "PBR\n(bats/yr)", option = "C") +
       scale_colour_manual(name = "Imposed threshold", values = threshold_colours, labels = threshold_display_labels) +
@@ -673,7 +683,7 @@ run_pbr_analysis <- function(fig_dir) {
   ggsave(fig_leslie_boundary_surface, width = 10, height = 5.2, dpi = 150, plot = {
     ggplot(surface_grid_boundary, aes(x = s_adult, y = litter, z = lambda)) +
       geom_raster(aes(fill = lambda)) +
-      geom_contour(breaks = lambda_max_benchmarks, aes(colour = after_stat(factor(level))), linewidth = 0.8) +
+      geom_contour(breaks = finite_breaks(lambda_max_benchmarks), aes(colour = after_stat(factor(level))), linewidth = 0.8) +
       scale_colour_manual(name = "lambda contour", values = benchmark_colours) +
       scale_fill_viridis_c(option = "D", name = "lambda") +
       geom_point(
@@ -745,7 +755,7 @@ run_pbr_analysis <- function(fig_dir) {
   ggsave(fig_nmin_lambda_surface, width = 8.5, height = 5.5, dpi = 150, plot = {
     ggplot(nmin_lambda_grid, aes(x = N, y = lambda)) +
       geom_raster(aes(fill = PBR), interpolate = TRUE) +
-      geom_contour(aes(z = PBR, colour = after_stat(factor(level))), breaks = nmin_lambda_breaks, linewidth = 0.45) +
+      geom_contour(aes(z = PBR, colour = after_stat(factor(level))), breaks = finite_breaks(nmin_lambda_breaks), linewidth = 0.45) +
       geom_vline(xintercept = nmin_assumed, linetype = "dashed", colour = "white", linewidth = 0.4) +
       annotate(
         "label", x = nmin_assumed, y = 1.235,
