@@ -154,7 +154,31 @@ run_adaptive_management_real <- function(fig_dir,
 
   plot_turbine_pareto <- function(turbine_dt, project_label) {
     n_focus <- nrow(turbine_dt)
-    n_top80 <- min(which(turbine_dt$cum_pct >= 0.80))
+    corrected_total <- sum(turbine_dt$corrected, na.rm = TRUE)
+    ## Guard against degenerate input (no pre-curtailment rows for this
+    ## project in the current data snapshot, or an NA correction factor
+    ## from a project-label mismatch): dividing by a zero/NA/non-finite
+    ## corrected_total inside sec_axis()'s formula below produces a
+    ## non-finite axis range that crashes deep inside ggplot's internal
+    ## breaks computation (seq.default: 'from' must be a finite number)
+    ## instead of failing cleanly. Return a labelled placeholder instead
+    ## so the report still renders and the real problem -- missing or
+    ## mislabelled source data for this project -- is visible rather than
+    ## a cryptic internal error.
+    if (n_focus == 0 || !is.finite(corrected_total) || corrected_total <= 0) {
+      warning(
+        "plot_turbine_pareto(): no usable pre-curtailment turbine data for '", project_label,
+        "' (", n_focus, " turbine-rows, corrected mortality total = ", corrected_total, "). ",
+        "Check that the raw workbook still contains pre-curtailment records for this project ",
+        "(period != \"2026, post-curtailment\") and that its project label matches facility_labels exactly."
+      )
+      p <- ggplot() +
+        annotate("text", x = 0, y = 0, label = paste0("No usable pre-curtailment data for ", project_label), size = 4) +
+        theme_void()
+      return(list(plot = p, n_focus = n_focus, n_top80 = NA_integer_))
+    }
+    n_top80_idx <- which(turbine_dt$cum_pct >= 0.80)
+    n_top80 <- if (length(n_top80_idx) > 0) min(n_top80_idx) else n_focus
     p <- ggplot(turbine_dt, aes(x = reorder(turbine_anon, rank))) +
       geom_col(aes(y = corrected), fill = "firebrick", alpha = 0.8) +
       geom_line(aes(y = cum_pct * max(corrected), group = 1), colour = "grey20", linewidth = 0.6) +
