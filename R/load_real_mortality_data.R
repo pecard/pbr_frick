@@ -51,7 +51,24 @@
 
 suppressPackageStartupMessages({ library(readxl); library(dplyr); library(lubridate) })
 
-genest_correction_factor <- c("Project 1" = 4.64, "Project 2" = 6.21)
+## Named by facility_labels (first = Bash, second = Djangeldy, fixed order
+## throughout this project -- see inputs/pbrSettings_BSH_DGY.R), NOT by
+## the hardcoded literal "Project 1"/"Project 2" this used to be: if
+## facility_labels is ever set to something else (a different anonymised
+## scheme, or accidentally the real "Bash WPP"/"Djangeldy WPP" names),
+## genest_correction_factor[project] used to silently return NA for every
+## lookup -- corrected mortality became NA/0 everywhere with no
+## indication why, surfacing only as opaque crashes several files
+## downstream (plot_turbine_pareto()'s sec_axis, candidate_pbr_reference.R's
+## `if (counterfactual_total > 0)`, etc.). Requires facility_labels to
+## already be sourced from inputs/pbrSettings_*.R before this file is.
+if (!exists("facility_labels") || length(facility_labels) != 2) {
+  stop(
+    "R/load_real_mortality_data.R requires facility_labels (length 2) to already be set -- ",
+    "source inputs/pbrSettings_BSH_DGY.R (or the active scenario's settings file) before this file."
+  )
+}
+genest_correction_factor <- setNames(c(4.64, 6.21), facility_labels)
 curtailment_start_date <- as.Date("2026-05-05")
 
 ## format(date, "%B"/"%b") renders the month name in the R session's

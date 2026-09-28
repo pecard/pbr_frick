@@ -21,6 +21,14 @@ output_file        <- "outputs/pbr_frick_technical_note_BSH_DGY.docx"
 lender_output_file <- "outputs/pbr_lender_summary_BSH_DGY.docx"
 lender_template     <- "report/pbr_lender_summary_template.Rmd"
 
+## Sourced BEFORE the R/ files below: R/load_real_mortality_data.R builds
+## genest_correction_factor from facility_labels at source time (not
+## inside a function), so facility_labels must already exist in this
+## environment by then -- otherwise it silently falls back to a
+## mismatched default and every correction-factor lookup downstream
+## returns NA for whatever facility_labels is currently set to.
+source(file.path("inputs", pbr_settings_file))
+
 source("R/pbr_analysis.R")
 source("R/adaptive_management_analysis.R")
 source("R/load_real_mortality_data.R")
@@ -31,7 +39,6 @@ source("R/global_pbr_uncertainty.R")
 source("R/candidate_pbr_reference.R")
 source("R/turbine_2027_classification.R")
 source("R/pbr_report.R")
-source(file.path("inputs", pbr_settings_file))
 
 bash_data_path <- "data-raw/BashWPP_Weekly_PCFM_PBR.xlsx"
 djangeldy_data_path <- "data-raw/DjangeldyWPP_Weekly_PCFM_PBR.xlsx"
