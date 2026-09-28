@@ -66,6 +66,29 @@ run_curtailment_year_effectiveness <- function(fig_dir = "outputs/figures",
     ) %>%
     left_join(project_thresholds, by = "project")
 
+  ## Data-quality guard: counterfactual_corrected must never be NA (unlike
+  ## actual_corrected, which is legitimately NA beyond data_max_date --
+  ## the counterfactual reference window is always one full year in the
+  ## past, so every week should have a real count). A single NA here
+  ## silently poisons sum(counterfactual_corrected) downstream (no
+  ## na.rm), which then poisons R/candidate_pbr_reference.R's
+  ## counterfactual_total several steps removed from the real cause,
+  ## surfacing there as an opaque "missing value where TRUE/FALSE
+  ## needed" instead of naming the actual project/week. Caught here
+  ## instead, with the exact row identified.
+  bad_counterfactual <- operational_year %>% filter(is.na(counterfactual_corrected))
+  if (nrow(bad_counterfactual) > 0) {
+    stop(
+      "run_curtailment_year_effectiveness(): counterfactual_corrected is NA for ",
+      nrow(bad_counterfactual), " project/week row(s), which should never happen: ",
+      paste(sprintf("%s/week %d (%s to %s)", bad_counterfactual$project, bad_counterfactual$week,
+                     bad_counterfactual$ref_start, bad_counterfactual$ref_end), collapse = "; "),
+      ". Likely cause: genest_correction_factor[project] returned NA (project label mismatch) ",
+      "or count_in_window() itself returned NA. Check inputs/pbrSettings_BSH_DGY.R's facility_labels ",
+      "against the raw workbooks' Project_Name values."
+    )
+  }
+
   checkpoint_op_week <- max(operational_year$week[!is.na(operational_year$actual_corrected)])
 
   ## ---- Reduction achieved so far (real data window only) -------------------
