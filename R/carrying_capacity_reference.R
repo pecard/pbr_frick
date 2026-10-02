@@ -779,6 +779,78 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
       theme(plot.subtitle = element_text(size = 9), legend.position = "bottom")
   })
 
+  ## ---- 6. Back to the Section 3 risk-vs-H curve, now at the ONE
+  ## single-parameter breakeven combination Section 5 found to be within a
+  ## literature-plausible range (S_adult = breakeven value for lambda=1.20;
+  ## S_juv, p_breed, litter left at Safi 2006 baseline) -- Paulo, 2026-10:
+  ## "se voltarmos a simulacao do Prob quasi-extinc...com o cenario que nos
+  ## deu plausivel, o que acontece a curva?". Same engine, same K, same
+  ## alpha=0.8 target as the original realistic-r curve -- only the vital
+  ## rates differ -- so the two curves are a direct, apples-to-apples
+  ## before/after of what raising survival toward the top of its plausible
+  ## range (not swapping in a bare Rmax) buys in removal headroom.
+  plausible_lambda_target <- min(lambda_max_benchmarks)  # 1.20 -- the only breakeven that stayed in-range
+  plausible_breakeven_row <- breakeven_H_table %>%
+    filter(param == "s_adult", lambda_target == plausible_lambda_target) %>%
+    slice(1)
+  plausible_s_adult <- plausible_breakeven_row$required_value
+  plausible_H_sustainable <- plausible_breakeven_row$H_sustainable
+  plausible_vitals <- baseline_vitals
+  plausible_vitals$s_adult <- plausible_s_adult
+
+  run_risk_general <- function(N0, H, K, s_juv, s_adult, p_breed, litter, juv_mortality_ratio,
+                                n_reps = 400, seed = pva_seed) {
+    sd_v <- stable_dist_of_vitals(s_juv, s_adult, p_breed, litter)
+    nf <- N0 / 2; nj <- round(nf * sd_v[1]); na <- nf - nj
+    set.seed(seed)
+    reps <- replicate(n_reps, simulate_constant_harvest_general(
+      nj, na, pva_n_years, H, K, s_juv, s_adult, p_breed, litter, juv_mortality_ratio = juv_mortality_ratio))
+    mean(reps[pva_n_years + 1, ] < 0.1 * K) * 100
+  }
+
+  sweep_H_max_plausible <- plausible_H_sustainable * 1.3
+  sweep_dt_plausible <- tibble::tibble(H = seq(0, sweep_H_max_plausible, length.out = 18)) %>%
+    rowwise() %>%
+    mutate(p_collapse = run_risk_general(sweep_N_target, H, sweep_K, s_juv = plausible_vitals$s_juv,
+                                          s_adult = plausible_vitals$s_adult, p_breed = plausible_vitals$p_breed,
+                                          litter = plausible_vitals$litter, juv_mortality_ratio = juv_mortality_ratio,
+                                          n_reps = 400)) %>%
+    ungroup()
+
+  scenario_realistic <- "Realistic r (validated Leslie, Safi 2006 baseline vitals)"
+  scenario_plausible <- paste0("S_adult=", round(plausible_s_adult, 3), " (breakeven for lambda=1.20, within literature range)")
+  sweep_dt_combined <- bind_rows(
+    sweep_dt %>% mutate(scenario = scenario_realistic),
+    sweep_dt_plausible %>% mutate(scenario = scenario_plausible)
+  )
+
+  fig_risk_sweep_plausible <- file.path(fig_dir, "carrying_capacity_risk_sweep_plausible.png")
+  ggsave(fig_risk_sweep_plausible, width = 9.5, height = 5.5, dpi = 150, bg = "white", plot = {
+    ggplot(sweep_dt_combined, aes(x = H, y = p_collapse, colour = scenario)) +
+      geom_line(linewidth = 0.9) +
+      geom_point(size = 1.8) +
+      geom_vline(xintercept = plausible_H_sustainable, linetype = "dashed", colour = "darkorange") +
+      geom_vline(data = project_thresholds, aes(xintercept = threshold), linetype = "dotted", colour = "grey40") +
+      geom_hline(data = tibble::tibble(acceptable_risk = acceptable_risk_grid * 100),
+                 aes(yintercept = acceptable_risk), linetype = "dotted", colour = "grey40") +
+      scale_colour_manual(name = NULL, values = setNames(c("steelblue", "darkorange"), c(scenario_realistic, scenario_plausible))) +
+      annotate("text", x = plausible_H_sustainable, y = 102, label = "H sustainable\n(10% risk) at\nS_adult=0.95",
+               colour = "darkorange", size = 2.8, hjust = -0.05) +
+      labs(
+        x = "Constant annual removal H", y = "P(falls below quasi-extinction in 25 yr), %",
+        title = "Risk-vs-H curve: realistic-r baseline vs. the one literature-plausible lambda=1.20 route",
+        subtitle = paste0(
+          "Dotted vertical grey: current imposed PBR thresholds (", paste(project_thresholds$project, project_thresholds$threshold, sep = "=", collapse = ", "), ").\n",
+          "Dotted horizontal: acceptable-risk conventions (5/10/20%). Raising S_adult to its breakeven value shifts the\n",
+          "whole curve right, but the 10%-risk H it buys (", round(plausible_H_sustainable), ") still sits ",
+          round(100 * plausible_H_sustainable / min(project_thresholds$threshold)), "-",
+          round(100 * plausible_H_sustainable / max(project_thresholds$threshold)), "% of the current thresholds."
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 8.7), legend.position = "bottom")
+  })
+
   list(
     cc_table = cc_table,
     stoch_summary = stoch_summary,
@@ -787,9 +859,11 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     breakeven_H_table = breakeven_H_table,
     elasticity_sweep = elasticity_sweep,
     tornado_table = tornado_table,
+    sweep_dt_combined = sweep_dt_combined,
     fig_H_curve = fig_H_curve,
     fig_stoch_check = fig_stoch_check,
     fig_risk_sweep = fig_risk_sweep,
+    fig_risk_sweep_plausible = fig_risk_sweep_plausible,
     fig_litter_sweep = fig_litter_sweep,
     fig_elasticity_vitals = fig_elasticity_vitals,
     fig_tornado = fig_tornado
