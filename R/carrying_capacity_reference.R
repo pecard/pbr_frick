@@ -39,12 +39,37 @@
 suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2) })
 
 run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
-                                             alpha_grid = c(0.5, 0.6, 0.7, 0.8, 0.9)) {
+                                             alpha_grid = c(0.5, 0.6, 0.7, 0.8, 0.9),
+                                             juv_mortality_ratio = 1.3) {
 
   dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
   fig_dir <- normalizePath(fig_dir, winslash = "/")
 
   project_thresholds <- tibble::tibble(project = facility_labels, threshold = pbr_thresholds$threshold)
+
+  ## ---- 0. Realistic r from the validated Leslie matrix (not the PBR
+  ## Niel-Lebreton Rmax benchmark) ---------------------------------------------
+  ## lambda_max_benchmarks (1.20/1.24) is the demographic-invariant
+  ## THEORETICAL MAXIMUM growth rate PBR uses to set Rmax -- an idealised
+  ## ceiling, deliberately optimistic for threshold-setting purposes, not
+  ## a claim about what this species actually achieves. The validated
+  ## Leslie matrix (same real vital rates used throughout this note)
+  ## gives a realistic lambda = 1.047 (r = ln(lambda) = 0.046) -- roughly
+  ## 5x lower. Using the PBR Rmax inside a logistic growth formula and
+  ## then testing the resulting H against a stochastic simulator built
+  ## from the REAL vital rates is internally inconsistent: the formula
+  ## assumes a growth capacity the simulated demography cannot deliver.
+  ## Included here as its own r scenario specifically to make this
+  ## mismatch visible instead of silently baking it in.
+  build_dekker_stage_matrix_r <- function(n_stages, s_juv, s_adult, fecundity) {
+    A <- matrix(0, n_stages, n_stages); A[1, n_stages] <- fecundity
+    for (i in 1:(n_stages - 1)) A[i + 1, i] <- s_juv
+    A[n_stages, n_stages] <- s_adult; A
+  }
+  leslie_F_cc <- leslie_p_breed * leslie_litter * leslie_sex_ratio * leslie_s_juv
+  A_leslie_cc <- build_dekker_stage_matrix_r(2, leslie_s_juv, leslie_s_adult_f, leslie_F_cc)
+  lambda_leslie_validated_cc <- Re(eigen(A_leslie_cc)$values[1])
+  r_validated <- log(lambda_leslie_validated_cc)
 
   ## ---- 1. Deterministic H(alpha, K) across the same K and r uncertainty
   ## already used elsewhere in this note -------------------------------------
@@ -53,8 +78,9 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     K = c(density_proxy_low, density_proxy_high) * project_footprint_km2
   )
   r_scenarios <- tibble::tibble(
-    r_label = paste0("Rmax at lambda_max = ", lambda_max_benchmarks),
-    Rmax = lambda_max_benchmarks - 1
+    r_label = c(paste0("PBR Rmax (theoretical max) at lambda_max = ", lambda_max_benchmarks),
+                "Realistic r (validated Leslie matrix, lambda=1.047)"),
+    Rmax = c(lambda_max_benchmarks - 1, r_validated)
   )
 
   cc_table <- tidyr::expand_grid(project_thresholds, K_scenarios, r_scenarios, alpha = alpha_grid) %>%
@@ -112,7 +138,20 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
   ## as R/pva_robustness.R's simulate_trajectory() (duplicated here, not
   ## imported, since this is a standalone prototype) -- constant annual
   ## removal H, logistic compensation in recruitment as N approaches K.
-  simulate_constant_harvest <- function(n0_juv, n0_adult, n_years, H, K, cv = pva_vital_rate_cv) {
+  ## juv_mortality_ratio: per-capita collision-mortality risk for the
+  ## juvenile-to-adult cohort, relative to adults (1 = equal risk; >1 =
+  ## juveniles somewhat more likely to be hit -- first-year bats are
+  ## less experienced flyers, consistent with the hoary bat literature's
+  ## sex/age-class differences in collision risk). H is split between
+  ## the two cohorts that form next year's population (maturing
+  ## juveniles and surviving adults) in proportion to their
+  ## risk-weighted abundance, not dumped entirely on adults as before.
+  ## Turbine mortality is assumed to fall only on already-volant
+  ## individuals (this year's standing juv/adult classes), never on
+  ## newborn pups not yet flying, so the differential applies here and
+  ## not to n_juv_recruits.
+  simulate_constant_harvest <- function(n0_juv, n0_adult, n_years, H, K, cv = pva_vital_rate_cv,
+                                         juv_mortality_ratio = 1) {
     bp_s_adult <- beta_params(leslie_s_adult_f, cv)
     bp_s_juv <- beta_params(leslie_s_juv, cv)
     bp_p_breed <- beta_params(leslie_p_breed, cv)
@@ -129,21 +168,34 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
       n_juv_recruits <- rbinom(1, n_female_pups, s_juv_t)
       n_juv_survive <- rbinom(1, n_juv, s_juv_t)
       n_adult_survive <- rbinom(1, n_adult, s_adult_t)
+
+      juv_weight <- n_juv_survive * juv_mortality_ratio
+      adult_weight <- n_adult_survive
+      total_weight <- juv_weight + adult_weight
+      if (total_weight > 0 && H > 0) {
+        H_juv <- H * juv_weight / total_weight
+        H_adult <- H * adult_weight / total_weight
+      } else {
+        H_juv <- 0; H_adult <- 0
+      }
       ## H is a continuous removal rate (not necessarily an integer
       ## number of animals); round after subtracting it, otherwise
       ## n_adult drifts non-integer and the next iteration's rbinom()
       ## silently returns NaN (rbinom requires an integer `size`).
-      n_adult_next <- as.integer(round(max(0, n_juv_survive + n_adult_survive - H)))
+      juv_after_H <- as.integer(round(max(0, n_juv_survive - H_juv)))
+      adult_after_H <- as.integer(round(max(0, n_adult_survive - H_adult)))
+      n_adult_next <- juv_after_H + adult_after_H
       n_juv <- n_juv_recruits; n_adult <- n_adult_next
       traj[yr + 1] <- 2 * (n_juv + n_adult)
     }
     traj
   }
 
-  run_from_start <- function(N0, H, K, n_years = pva_n_years, n_reps = pva_n_reps, seed = pva_seed) {
+  run_from_start <- function(N0, H, K, n_years = pva_n_years, n_reps = pva_n_reps, seed = pva_seed,
+                              juv_mortality_ratio = 1) {
     set.seed(seed)
     nf <- N0 / 2; nj <- round(nf * stable_dist[1]); na <- nf - nj
-    reps <- replicate(n_reps, simulate_constant_harvest(nj, na, n_years, H, K))
+    reps <- replicate(n_reps, simulate_constant_harvest(nj, na, n_years, H, K, juv_mortality_ratio = juv_mortality_ratio))
     list(
       trajectories = reps,
       median_traj = apply(reps, 1, median),
@@ -154,59 +206,89 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
   }
 
   ## Representative scenario for the stochastic check: alpha = 0.8
-  ## (a plausible "near K" ecological-viability target), K high.
+  ## (a plausible "near K" ecological-viability target), K high, crossed
+  ## with BOTH r choices -- the PBR Rmax (theoretical max, what the
+  ## closed-form formula used originally) and the realistic validated-
+  ## Leslie r -- to show directly whether the earlier 100% collapse was
+  ## about the removal-distribution assumption or about r itself.
   check_alpha <- 0.8
-  stoch_check <- project_thresholds %>%
-    rowwise() %>%
+  r_check_scenarios <- tibble::tibble(
+    r_label = c("PBR Rmax (theoretical max)", "Realistic r (validated Leslie)"),
+    Rmax = c(lambda_max_benchmarks[1] - 1, r_validated)
+  )
+  stoch_check <- tidyr::expand_grid(project_thresholds, r_check_scenarios) %>%
     mutate(
       K = density_proxy_high * project_footprint_km2,
-      Rmax = lambda_max_benchmarks[1] - 1,
       H = Rmax * K * check_alpha * (1 - check_alpha),
       N_target = check_alpha * K
-    ) %>%
-    ungroup()
+    )
+
+  ## Compare three removal-distribution assumptions: the original
+  ## prototype's "all on adults" (ratio=0, i.e. zero weight on
+  ## juveniles), an equal-risk split (ratio=1), and Paulo's assumption
+  ## of somewhat higher juvenile risk (ratio=juv_mortality_ratio).
+  ratio_scenarios <- tibble::tibble(
+    ratio_label = c("All removal on adults (original)", "Equal risk, juv & adult",
+                    paste0("Juveniles ", juv_mortality_ratio, "x adult risk")),
+    ratio_value = c(0, 1, juv_mortality_ratio)
+  )
 
   stoch_results <- list()
   traj_plot_rows <- list()
   for (i in seq_len(nrow(stoch_check))) {
-    proj <- stoch_check$project[i]; K <- stoch_check$K[i]; H <- stoch_check$H[i]; N_target <- stoch_check$N_target[i]
-    at_target <- run_from_start(N_target, H, K)
-    at_nmin <- run_from_start(nmin_assumed, H, K)
-    stoch_results[[proj]] <- list(
-      p_collapse_starting_at_target = at_target$p_collapse,
-      p_collapse_starting_at_nmin = at_nmin$p_collapse
-    )
-    traj_plot_rows[[paste0(proj, "_target")]] <- tibble::tibble(
-      project = proj, year = 0:pva_n_years, start = "Starting at N* = alpha*K",
-      median = at_target$median_traj, p10 = at_target$p10_traj, p90 = at_target$p90_traj
-    )
-    traj_plot_rows[[paste0(proj, "_nmin")]] <- tibble::tibble(
-      project = proj, year = 0:pva_n_years, start = "Starting at Nmin (today's plausible status)",
-      median = at_nmin$median_traj, p10 = at_nmin$p10_traj, p90 = at_nmin$p90_traj
-    )
+    proj <- stoch_check$project[i]; rl_r <- stoch_check$r_label[i]
+    K <- stoch_check$K[i]; H <- stoch_check$H[i]; N_target <- stoch_check$N_target[i]
+    for (j in seq_len(nrow(ratio_scenarios))) {
+      rl <- ratio_scenarios$ratio_label[j]; rv <- ratio_scenarios$ratio_value[j]
+      at_target <- run_from_start(N_target, H, K, juv_mortality_ratio = rv)
+      at_nmin <- run_from_start(nmin_assumed, H, K, juv_mortality_ratio = rv)
+      key <- paste(proj, rl_r, rl)
+      stoch_results[[key]] <- list(
+        project = proj, r_label = rl_r, ratio_label = rl,
+        p_collapse_starting_at_target = at_target$p_collapse,
+        p_collapse_starting_at_nmin = at_nmin$p_collapse
+      )
+      traj_plot_rows[[paste(key, "target")]] <- tibble::tibble(
+        project = proj, r_label = rl_r, ratio_label = rl, year = 0:pva_n_years, start = "Starting at N* = alpha*K",
+        median = at_target$median_traj, p10 = at_target$p10_traj, p90 = at_target$p90_traj
+      )
+      traj_plot_rows[[paste(key, "nmin")]] <- tibble::tibble(
+        project = proj, r_label = rl_r, ratio_label = rl, year = 0:pva_n_years, start = "Starting at Nmin (today's plausible status)",
+        median = at_nmin$median_traj, p10 = at_nmin$p10_traj, p90 = at_nmin$p90_traj
+      )
+    }
   }
-  traj_plot_dt <- bind_rows(traj_plot_rows)
-  stoch_summary <- stoch_check %>%
-    mutate(
-      p_collapse_starting_at_target = sapply(project, function(p) stoch_results[[p]]$p_collapse_starting_at_target),
-      p_collapse_starting_at_nmin = sapply(project, function(p) stoch_results[[p]]$p_collapse_starting_at_nmin)
-    )
+  traj_plot_dt <- bind_rows(traj_plot_rows) %>%
+    mutate(ratio_label = factor(ratio_label, levels = ratio_scenarios$ratio_label))
+  stoch_summary <- bind_rows(lapply(stoch_results, as.data.frame)) %>%
+    tibble::as_tibble() %>%
+    mutate(ratio_label = factor(ratio_label, levels = ratio_scenarios$ratio_label)) %>%
+    left_join(stoch_check %>% select(project, r_label, K, H, N_target), by = c("project", "r_label")) %>%
+    arrange(project, r_label, ratio_label)
 
+  ## Trajectory figure uses the realistic-r scenario only (the
+  ## internally-consistent test); the PBR-Rmax scenario's numbers are in
+  ## stoch_summary for comparison but are not re-plotted in full --
+  ## already shown to collapse regardless of distribution assumption.
   fig_stoch_check <- file.path(fig_dir, "carrying_capacity_stochastic_check.png")
-  ggsave(fig_stoch_check, width = 10, height = 5.5, dpi = 150, plot = {
-    ggplot(traj_plot_dt, aes(x = year, y = median, colour = start, fill = start)) +
+  ggsave(fig_stoch_check, width = 11, height = 7.5, dpi = 150, plot = {
+    realistic_r_label <- "Realistic r (validated Leslie)"
+    hline_dt <- stoch_check %>% filter(r_label == realistic_r_label) %>% select(project, N_target, K) %>%
+      tidyr::crossing(ratio_label = ratio_scenarios$ratio_label) %>%
+      mutate(ratio_label = factor(ratio_label, levels = ratio_scenarios$ratio_label))
+    ggplot(traj_plot_dt %>% filter(r_label == realistic_r_label), aes(x = year, y = median, colour = start, fill = start)) +
       geom_ribbon(aes(ymin = p10, ymax = p90), alpha = 0.15, colour = NA) +
       geom_line(linewidth = 1) +
-      geom_hline(data = stoch_check, aes(yintercept = N_target), linetype = "dotted", colour = "forestgreen") +
-      geom_hline(data = stoch_check, aes(yintercept = 0.1 * K), linetype = "dotted", colour = "firebrick") +
-      facet_wrap(~project, scales = "free_y") +
+      geom_hline(data = hline_dt, aes(yintercept = N_target), linetype = "dotted", colour = "forestgreen") +
+      geom_hline(data = hline_dt, aes(yintercept = 0.1 * K), linetype = "dotted", colour = "firebrick") +
+      facet_grid(ratio_label ~ project, scales = "free_y") +
       labs(
         x = "Year", y = "Population size (median, 10-90th percentile band)",
-        title = paste0("Same constant removal H (alpha=", check_alpha, " target), two starting points"),
-        subtitle = "Green dotted: N* = alpha*K target. Red dotted: quasi-extinction (10% of K). Same H can be safe from one start and not the other."
+        title = paste0("H from the REALISTIC r (alpha=", check_alpha, " target), three removal-distribution assumptions"),
+        subtitle = "Green dotted: N* = alpha*K target. Red dotted: quasi-extinction (10% of K)."
       ) +
       theme_minimal() +
-      theme(plot.subtitle = element_text(size = 9.5), strip.text = element_text(face = "bold"), legend.position = "bottom")
+      theme(plot.subtitle = element_text(size = 9.5), strip.text = element_text(size = 8.5, face = "bold"), legend.position = "bottom")
   })
 
   list(
