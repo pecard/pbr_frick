@@ -135,8 +135,16 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
   A_leslie <- build_dekker_stage_matrix(2, leslie_s_juv, leslie_s_adult_f, leslie_F)
   stable_dist <- Re(eigen(A_leslie)$vectors[, 1]); stable_dist <- stable_dist / sum(stable_dist)
 
+  ## A Beta(mean, var) distribution only exists for var < mean*(1-mean); the
+  ## fixed cv=10% assumption breaches that ceiling once mean gets close to 0
+  ## or 1 (e.g. the s_adult~0.997 breakeven value Section 5 finds is needed
+  ## to reach lambda=1.24 alone -- common would go negative and rbeta()
+  ## would silently return NaN downstream). Clamping var just below the
+  ## ceiling is a no-op for every mean this note actually uses elsewhere
+  ## (0.4-0.95 at cv=0.10, nowhere near the ceiling) and only engages for
+  ## these extreme, already-flagged-as-implausible elasticity points.
   beta_params <- function(mean, cv) {
-    var <- (mean * cv)^2
+    var <- min((mean * cv)^2, mean * (1 - mean) * 0.98)
     common <- mean * (1 - mean) / var - 1
     list(shape1 = mean * common, shape2 = (1 - mean) * common)
   }
@@ -496,14 +504,294 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
       theme(plot.subtitle = element_text(size = 9))
   })
 
+  ## ---- 5. Elasticity: how far would each vital rate need to move to reach
+  ## Frick's lambda_max benchmarks (1.20/1.24), and what carrying-capacity H
+  ## does that combination actually sustain once it is run through the real
+  ## age-structured stochastic engine (not the closed-form Schaefer formula
+  ## used in Section 1)? Paulo, 2026-10: "se subirmos o lambda para 1.2 ou
+  ## 1.24 como Frick propoe, como fica o nosso H ... falta-nos um teste de
+  ## elasticidade dos parametros do carrying capacity".
+  ##
+  ## Reuses the SAME baseline vital rates, plausible ranges and univariate-
+  ## breakeven method as R/leslie_boundary_analysis.R (that script's own
+  ## range_s_adult/range_s_juv/range_p_breed/range_litter, now promoted to
+  ## inputs/pbrSettings_BSH_DGY.R as leslie_boundary_range_* / s_range) --
+  ## not a fresh set of assumptions. What is new here: each breakeven vital-
+  ## rate combination is fed into this script's own stochastic H-finder
+  ## (same engine as Sections 2-4), so "lambda=1.2/1.24" is translated into
+  ## an actual simulated population trajectory and a reportable H, instead
+  ## of being plugged into r*K*alpha*(1-alpha) as if the age structure and
+  ## maturation lag did not matter (Section 0 already showed that shortcut
+  ## is what drove the earlier 100% collapse finding).
+  build_leslie_general <- function(s_juv, s_adult, p_breed, litter) {
+    F_rec <- p_breed * litter * leslie_sex_ratio * s_juv
+    build_dekker_stage_matrix_r(2, s_juv, s_adult, F_rec)
+  }
+  lambda_of_vitals <- function(s_juv, s_adult, p_breed, litter) {
+    Re(eigen(build_leslie_general(s_juv, s_adult, p_breed, litter))$values[1])
+  }
+  stable_dist_of_vitals <- function(s_juv, s_adult, p_breed, litter) {
+    v <- Re(eigen(build_leslie_general(s_juv, s_adult, p_breed, litter))$vectors[, 1])
+    v / sum(v)
+  }
+  baseline_vitals <- list(s_juv = leslie_s_juv, s_adult = leslie_s_adult_f,
+                           p_breed = leslie_p_breed, litter = leslie_litter)
+  stopifnot(abs(do.call(lambda_of_vitals, baseline_vitals) - lambda_leslie_validated_cc) < 1e-9)
+
+  ## Same discrete-time engine as simulate_constant_harvest()/
+  ## simulate_constant_harvest_litter() above, generalised to take all four
+  ## vital rates as arguments rather than reading them (or just litter)
+  ## from the global baseline -- so any plausible combination, not only a
+  ## single-lever sweep, can be run through it.
+  simulate_constant_harvest_general <- function(n0_juv, n0_adult, n_years, H, K,
+                                                  s_juv, s_adult, p_breed, litter,
+                                                  cv = pva_vital_rate_cv, juv_mortality_ratio = 1) {
+    bp_s_adult <- beta_params(s_adult, cv)
+    bp_s_juv <- beta_params(s_juv, cv)
+    bp_p_breed <- beta_params(p_breed, cv)
+    n_juv <- as.integer(round(n0_juv)); n_adult <- as.integer(round(n0_adult))
+    traj <- numeric(n_years + 1); traj[1] <- 2 * (n_juv + n_adult)
+    for (yr in seq_len(n_years)) {
+      s_adult_t <- rbeta(1, bp_s_adult$shape1, bp_s_adult$shape2)
+      s_juv_t <- rbeta(1, bp_s_juv$shape1, bp_s_juv$shape2)
+      p_breed_t <- rbeta(1, bp_p_breed$shape1, bp_p_breed$shape2)
+      density_factor <- max(0, 1 - (2 * (n_juv + n_adult)) / K)
+      n_breeders <- rbinom(1, n_adult, p_breed_t)
+      n_pups_total <- rpois(1, n_breeders * litter * density_factor)
+      n_female_pups <- rbinom(1, n_pups_total, leslie_sex_ratio)
+      n_juv_recruits <- rbinom(1, n_female_pups, s_juv_t)
+      n_juv_survive <- rbinom(1, n_juv, s_juv_t)
+      n_adult_survive <- rbinom(1, n_adult, s_adult_t)
+      juv_weight <- n_juv_survive * juv_mortality_ratio
+      adult_weight <- n_adult_survive
+      total_weight <- juv_weight + adult_weight
+      if (total_weight > 0 && H > 0) {
+        H_juv <- H * juv_weight / total_weight; H_adult <- H * adult_weight / total_weight
+      } else { H_juv <- 0; H_adult <- 0 }
+      juv_after_H <- as.integer(round(max(0, n_juv_survive - H_juv)))
+      adult_after_H <- as.integer(round(max(0, n_adult_survive - H_adult)))
+      n_juv <- n_juv_recruits; n_adult <- juv_after_H + adult_after_H
+      traj[yr + 1] <- 2 * (n_juv + n_adult)
+    }
+    traj
+  }
+
+  find_sustainable_H_general <- function(N0, K, s_juv, s_adult, p_breed, litter,
+                                          acceptable_risk = 0.10, juv_mortality_ratio = 1.3,
+                                          search_reps = 300, confirm_reps = pva_n_reps,
+                                          H_upper = NULL, tol = 0.5, max_iter = 25) {
+    sd_v <- stable_dist_of_vitals(s_juv, s_adult, p_breed, litter)
+    nf <- N0 / 2; nj <- round(nf * sd_v[1]); na <- nf - nj
+    run_risk <- function(H, n_reps) {
+      set.seed(pva_seed)
+      reps <- replicate(n_reps, simulate_constant_harvest_general(
+        nj, na, pva_n_years, H, K, s_juv, s_adult, p_breed, litter,
+        juv_mortality_ratio = juv_mortality_ratio))
+      mean(reps[pva_n_years + 1, ] < 0.1 * K)
+    }
+    if (is.null(H_upper)) H_upper <- K * 0.2
+    H_lo <- 0; H_hi <- H_upper
+    for (iter in seq_len(max_iter)) {
+      H_mid <- (H_lo + H_hi) / 2
+      risk <- run_risk(H_mid, search_reps)
+      if (risk > acceptable_risk) H_hi <- H_mid else H_lo <- H_mid
+      if ((H_hi - H_lo) < tol) break
+    }
+    tibble::tibble(H_sustainable = H_lo, p_collapse_confirmed = run_risk(H_lo, confirm_reps) * 100)
+  }
+
+  ## 5a. Univariate breakeven: value each vital rate alone would need to
+  ## reach lambda = 1.20 / 1.24, holding the other three at Safi's (2006)
+  ## baseline -- same method as R/leslie_boundary_analysis.R's
+  ## solve_breakeven(), not re-derived differently here.
+  vital_param_labels <- c(s_adult = "Adult female survival", s_juv = "Juvenile survival",
+                           p_breed = "Breeding fraction", litter = "Litter size")
+  vital_plausible_ranges <- list(s_adult = s_range, s_juv = leslie_boundary_range_s_juv,
+                                  p_breed = leslie_boundary_range_p_breed, litter = leslie_boundary_range_litter)
+  vital_search_ceiling <- list(s_adult = 0.999, s_juv = 0.99, p_breed = 1.0, litter = 6)
+
+  solve_breakeven_vital <- function(param, target, search_upper) {
+    f <- function(x) {
+      args <- baseline_vitals; args[[param]] <- x
+      do.call(lambda_of_vitals, args) - target
+    }
+    lo <- baseline_vitals[[param]]
+    if (f(lo) >= 0) return(lo)
+    if (f(search_upper) < 0) return(NA_real_)
+    uniroot(f, c(lo, search_upper))$root
+  }
+
+  K_elastic <- density_proxy_high * project_footprint_km2
+  N_target_elastic <- check_alpha * K_elastic  # same alpha=0.8 scenario as Sections 2-4
+
+  breakeven_H_table <- tidyr::expand_grid(param = names(baseline_vitals), lambda_target = lambda_max_benchmarks) %>%
+    rowwise() %>%
+    mutate(
+      parameter = vital_param_labels[param],
+      baseline_value = baseline_vitals[[param]],
+      required_value = solve_breakeven_vital(param, lambda_target, vital_search_ceiling[[param]]),
+      plausible_lower = vital_plausible_ranges[[param]][1],
+      plausible_upper = vital_plausible_ranges[[param]][2],
+      within_plausible_range = !is.na(required_value) & required_value <= plausible_upper
+    ) %>%
+    ungroup()
+
+  run_breakeven_row <- function(param, required_value) {
+    if (is.na(required_value)) return(tibble::tibble(H_sustainable = NA_real_, p_collapse_confirmed = NA_real_))
+    v <- baseline_vitals; v[[param]] <- required_value
+    find_sustainable_H_general(N_target_elastic, K_elastic, s_juv = v$s_juv, s_adult = v$s_adult,
+                                p_breed = v$p_breed, litter = v$litter,
+                                acceptable_risk = 0.10, juv_mortality_ratio = juv_mortality_ratio)
+  }
+  breakeven_H_table <- breakeven_H_table %>%
+    rowwise() %>%
+    mutate(H_result = list(run_breakeven_row(param, required_value))) %>%
+    ungroup() %>%
+    tidyr::unnest(H_result) %>%
+    tidyr::crossing(project_thresholds) %>%
+    mutate(pct_of_current_threshold = round(100 * H_sustainable / threshold))
+
+  ## 5b. Full one-at-a-time sweep across each vital rate's plausible range
+  ## (6 points, others held at baseline) -- the elasticity of simulated H,
+  ## not just the single breakeven point.
+  run_vital_sweep <- function(param) {
+    rng <- vital_plausible_ranges[[param]]
+    values <- sort(unique(c(seq(rng[1], rng[2], length.out = 6), baseline_vitals[[param]])))
+    sweep_rows <- lapply(values, function(val) {
+      v <- baseline_vitals; v[[param]] <- val
+      lambda_v <- do.call(lambda_of_vitals, v)
+      H_res <- find_sustainable_H_general(N_target_elastic, K_elastic, s_juv = v$s_juv, s_adult = v$s_adult,
+                                           p_breed = v$p_breed, litter = v$litter,
+                                           acceptable_risk = 0.10, juv_mortality_ratio = juv_mortality_ratio,
+                                           confirm_reps = 500)
+      tibble::tibble(param = param, value = val, lambda = lambda_v, H_sustainable = H_res$H_sustainable)
+    })
+    bind_rows(sweep_rows)
+  }
+  elasticity_sweep <- bind_rows(lapply(names(baseline_vitals), run_vital_sweep)) %>%
+    mutate(parameter = vital_param_labels[param], baseline_value = unlist(baseline_vitals[param]))
+
+  fig_elasticity_vitals <- file.path(fig_dir, "carrying_capacity_elasticity_vitals.png")
+  ggsave(fig_elasticity_vitals, width = 11, height = 5, dpi = 150, bg = "white", plot = {
+    hline_dt <- tidyr::crossing(project_thresholds, parameter = unique(elasticity_sweep$parameter))
+    ggplot(elasticity_sweep, aes(x = value, y = H_sustainable)) +
+      geom_hline(data = hline_dt, aes(yintercept = threshold, colour = project), linetype = "dotted", linewidth = 0.6) +
+      geom_vline(aes(xintercept = baseline_value), linetype = "dashed", colour = "grey50") +
+      geom_line(colour = "darkorange", linewidth = 0.9) +
+      geom_point(aes(fill = lambda), shape = 21, size = 2.6, colour = "black") +
+      scale_fill_viridis_c(option = "D", name = "lambda") +
+      scale_colour_manual(name = "Current imposed\nPBR threshold", values = c("grey20", "grey50")) +
+      facet_wrap(~parameter, scales = "free_x", nrow = 1) +
+      labs(
+        x = "Vital-rate value swept (others held at Safi 2006 baseline)",
+        y = "Simulated sustainable H (alpha=0.8, 10% risk)",
+        title = "Elasticity of simulated carrying-capacity H to each vital rate",
+        subtitle = paste0(
+          "Dashed grey vertical: Safi (2006) baseline value. Dotted horizontals: current imposed PBR thresholds.\n",
+          "Point colour: resulting lambda. Each panel varies one rate across its literature-plausible range; others fixed."
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9), strip.text = element_text(face = "bold"), legend.position = "bottom")
+  })
+
+  ## 5c. Tornado: rank ALL the parameters this note has treated as
+  ## uncertain -- the four vital rates AND the carrying-capacity-specific
+  ## choices (alpha, acceptable_risk, K, juv_mortality_ratio) -- by how much
+  ## moving each one alone, low vs. high across the SAME ranges already
+  ## used elsewhere in this script (not new bounds invented for this
+  ## figure), shifts simulated H away from the alpha=0.8/K-high/10%-risk
+  ## reference point. Vital rates have a literature-grounded plausible
+  ## range (flagged "literature range"); the other four are this analysis'
+  ## own structural/policy choices, not biological estimates (flagged
+  ## "modelling choice") -- the two kinds of uncertainty are not
+  ## interchangeable and the figure keeps them visually distinct.
+  tornado_reference <- find_sustainable_H_general(
+    N_target_elastic, K_elastic, s_juv = leslie_s_juv, s_adult = leslie_s_adult_f,
+    p_breed = leslie_p_breed, litter = leslie_litter,
+    acceptable_risk = 0.10, juv_mortality_ratio = juv_mortality_ratio
+  )$H_sustainable
+
+  tornado_vital <- function(param) {
+    rng <- vital_plausible_ranges[[param]]
+    H_each <- sapply(rng, function(val) {
+      v <- baseline_vitals; v[[param]] <- val
+      find_sustainable_H_general(N_target_elastic, K_elastic, s_juv = v$s_juv, s_adult = v$s_adult,
+                                  p_breed = v$p_breed, litter = v$litter,
+                                  acceptable_risk = 0.10, juv_mortality_ratio = juv_mortality_ratio,
+                                  confirm_reps = 500)$H_sustainable
+    })
+    tibble::tibble(parameter = vital_param_labels[param], kind = "Literature range",
+                    H_low = H_each[1], H_high = H_each[2])
+  }
+  tornado_cc <- tibble::tribble(
+    ~parameter, ~H_low_args, ~H_high_args,
+    "Target distance from K (alpha)", list(N0_mult = 0.5), list(N0_mult = 0.9),
+    "Acceptable quasi-extinction risk", list(risk = min(acceptable_risk_grid)), list(risk = max(acceptable_risk_grid)),
+    "Carrying capacity (K)", list(K_use = "low"), list(K_use = "high"),
+    "Juvenile:adult mortality risk ratio", list(ratio = 0), list(ratio = max(ratio_scenarios$ratio_value))
+  )
+  tornado_cc_row <- function(parameter, args_low, args_high) {
+    run_one <- function(a) {
+      N0_mult <- if (!is.null(a$N0_mult)) a$N0_mult else check_alpha
+      risk <- if (!is.null(a$risk)) a$risk else 0.10
+      K_use <- if (!is.null(a$K_use) && a$K_use == "low") density_proxy_low * project_footprint_km2 else K_elastic
+      ratio <- if (!is.null(a$ratio)) a$ratio else juv_mortality_ratio
+      find_sustainable_H_general(N0_mult * K_use, K_use, s_juv = leslie_s_juv, s_adult = leslie_s_adult_f,
+                                  p_breed = leslie_p_breed, litter = leslie_litter,
+                                  acceptable_risk = risk, juv_mortality_ratio = ratio,
+                                  confirm_reps = 500)$H_sustainable
+    }
+    tibble::tibble(parameter = parameter, kind = "Modelling choice", H_low = run_one(args_low), H_high = run_one(args_high))
+  }
+  tornado_table <- bind_rows(
+    bind_rows(lapply(names(baseline_vitals), tornado_vital)),
+    bind_rows(lapply(seq_len(nrow(tornado_cc)), function(i) {
+      tornado_cc_row(tornado_cc$parameter[i], tornado_cc$H_low_args[[i]], tornado_cc$H_high_args[[i]])
+    }))
+  ) %>%
+    mutate(
+      H_reference = tornado_reference,
+      range_width = abs(H_high - H_low)
+    ) %>%
+    arrange(desc(range_width)) %>%
+    mutate(parameter = factor(parameter, levels = rev(parameter)))
+
+  fig_tornado <- file.path(fig_dir, "carrying_capacity_tornado.png")
+  ggsave(fig_tornado, width = 9, height = 5.5, dpi = 150, bg = "white", plot = {
+    tornado_long <- tornado_table %>%
+      tidyr::pivot_longer(c(H_low, H_high), names_to = "end", values_to = "H")
+    ggplot(tornado_table) +
+      geom_segment(aes(x = pmin(H_low, H_high), xend = pmax(H_low, H_high), y = parameter, yend = parameter, colour = kind),
+                   linewidth = 5, alpha = 0.6) +
+      geom_point(data = tornado_long, aes(x = H, y = parameter, colour = kind), size = 2.5) +
+      geom_vline(aes(xintercept = H_reference), linetype = "dashed", colour = "grey30") +
+      scale_colour_manual(name = NULL, values = c("Literature range" = "steelblue", "Modelling choice" = "firebrick")) +
+      annotate("text", x = tornado_reference, y = Inf, label = "Reference\n(baseline vitals,\nalpha=0.8, 10% risk)",
+               vjust = 1.3, hjust = -0.05, size = 2.9, colour = "grey30") +
+      labs(
+        x = "Simulated sustainable H, varying ONE parameter low to high (others at reference)",
+        y = NULL,
+        title = "Which parameter moves the carrying-capacity H the most?",
+        subtitle = "Bar = low-to-high H across each parameter's own plausible range (same ranges used elsewhere in this script).\nBlue = literature-grounded vital rate; red = this analysis' own structural/policy choice, not a biological estimate."
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9), legend.position = "bottom")
+  })
+
   list(
     cc_table = cc_table,
     stoch_summary = stoch_summary,
     sustainable_H_table = sustainable_H_table,
     litter_sweep = litter_sweep,
+    breakeven_H_table = breakeven_H_table,
+    elasticity_sweep = elasticity_sweep,
+    tornado_table = tornado_table,
     fig_H_curve = fig_H_curve,
     fig_stoch_check = fig_stoch_check,
     fig_risk_sweep = fig_risk_sweep,
-    fig_litter_sweep = fig_litter_sweep
+    fig_litter_sweep = fig_litter_sweep,
+    fig_elasticity_vitals = fig_elasticity_vitals,
+    fig_tornado = fig_tornado
   )
 }
