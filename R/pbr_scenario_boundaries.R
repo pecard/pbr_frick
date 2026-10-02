@@ -90,7 +90,7 @@ plot_grid <- boundary_grid %>%
   )
 
 fig_pbr_boundaries <- file.path(fig_dir, "pbr_scenario_boundaries.png")
-ggsave(fig_pbr_boundaries, width = 11, height = 6.5, dpi = 150, plot = {
+ggsave(fig_pbr_boundaries, width = 11, height = 6.5, dpi = 150, bg = "white", plot = {
   ggplot(plot_grid, aes(x = reorder(fr_label, fr), y = PBR, colour = factor(lambda_max))) +
     geom_rect(
       data = tibble::tibble(nmin_label = unique(plot_grid$nmin_label)),
@@ -210,7 +210,7 @@ curtailment_summary_by_year <- curtailment_trajectories %>%
             q75 = quantile(N, 0.75), q95 = quantile(N, 0.95), .groups = "drop")
 
 fig_pva_curtailment <- file.path(fig_dir, "pva_curtailment_effect.png")
-ggsave(fig_pva_curtailment, width = 11, height = 4.5, dpi = 150, plot = {
+ggsave(fig_pva_curtailment, width = 11, height = 4.5, dpi = 150, bg = "white", plot = {
   ggplot(curtailment_summary_by_year, aes(x = year)) +
     geom_ribbon(aes(ymin = q05, ymax = q95, fill = scenario), alpha = 0.15) +
     geom_ribbon(aes(ymin = q25, ymax = q75, fill = scenario), alpha = 0.3) +

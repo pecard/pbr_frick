@@ -200,7 +200,7 @@ pva_summary_by_year <- bind_rows(lapply(names(pva_by_nmin), function(nm) {
 }))
 
 fig_pva_nmin_sensitivity <- file.path(fig_dir, "pva_nmin_sensitivity.png")
-ggsave(fig_pva_nmin_sensitivity, width = 11, height = 6.5, dpi = 150, plot = {
+ggsave(fig_pva_nmin_sensitivity, width = 11, height = 6.5, dpi = 150, bg = "white", plot = {
   ggplot(pva_summary_by_year, aes(x = year)) +
     geom_ribbon(aes(ymin = q05, ymax = q95, fill = scenario), alpha = 0.15) +
     geom_ribbon(aes(ymin = q25, ymax = q75, fill = scenario), alpha = 0.3) +

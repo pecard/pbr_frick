@@ -194,7 +194,7 @@ run_candidate_pbr_reference <- function(fig_dir, nmin_assumed, global_pbr_quanti
 
   ## ---- Figure: level vs turbines-required vs PVA decline risk, per project -
   fig_candidate_pbr <- file.path(fig_dir, "candidate_pbr_reference.png")
-  ggsave(fig_candidate_pbr, width = 11, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_candidate_pbr, width = 11, height = 5.5, dpi = 150, bg = "white", plot = {
     ggplot(candidate_pbr_table, aes(x = n_turbines_required, y = level)) +
       geom_line(colour = "grey50", linewidth = 0.5) +
       geom_point(aes(colour = pva_p_decline, size = pct_reduction_needed)) +

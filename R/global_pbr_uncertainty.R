@@ -104,7 +104,7 @@ run_global_pbr_uncertainty <- function(fig_dir, nmin_assumed, old_pbr_quantiles)
   ) %>% mutate(project = factor(project, levels = levels(plot_dt$project)))
 
   fig_global_pbr_uncertainty <- file.path(fig_dir, "global_pbr_uncertainty.png")
-  ggsave(fig_global_pbr_uncertainty, width = 12, height = 4.5, dpi = 150, plot = {
+  ggsave(fig_global_pbr_uncertainty, width = 12, height = 4.5, dpi = 150, bg = "white", plot = {
     ggplot(plot_dt, aes(x = PBR)) +
       geom_density(fill = "steelblue", alpha = 0.4, colour = "steelblue4") +
       geom_vline(data = threshold_lines, aes(xintercept = threshold, colour = facility), linewidth = 0.8, linetype = "dashed") +

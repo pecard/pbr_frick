@@ -182,7 +182,7 @@ run_turbine_validation <- function(fig_dir = "outputs/figures",
   cutoff_dt <- overlap_stats %>% select(project, n_official_selected, n_my_selected)
 
   fig_turbine_validation <- file.path(fig_dir, "turbine_selection_validation.png")
-  ggsave(fig_turbine_validation, width = 10, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_turbine_validation, width = 10, height = 5.5, dpi = 150, bg = "white", plot = {
     ggplot(rank_plot_dt, aes(x = official_rank_plot, y = my_rank_plot, colour = agreement)) +
       geom_vline(data = cutoff_dt, aes(xintercept = n_official_selected + 0.5), linetype = "dashed", colour = "grey40", linewidth = 0.4) +
       geom_hline(data = cutoff_dt, aes(yintercept = n_my_selected + 0.5), linetype = "dashed", colour = "grey40", linewidth = 0.4) +

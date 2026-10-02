@@ -60,7 +60,7 @@ run_paris_turbine_classification <- function(fig_dir = "outputs/figures", sim,
   weak_pct <- if (nrow(closest_miss) == 0) NA_real_ else round(100 * closest_miss$total / boundary_value)
 
   fig_classification <- file.path(fig_dir, "paris_turbine_classification.png")
-  ggsave(fig_classification, width = 8, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_classification, width = 8, height = 5.5, dpi = 150, bg = "white", plot = {
     plot_dt <- tbl %>% mutate(group_plot = factor(
       group_display, levels = c("Core (curtailed)", "Core (curtailed) -- watch-list", "Expansion candidate", "Not flagged")
     ))

@@ -73,7 +73,7 @@ p_compare <- ggplot(grid, aes(x = s, y = alpha, fill = diff)) +
     subtitle = sprintf("Leslie: juvenile survival = %.2f (central estimate), female fecundity = %s", s_juv_central, female_fecundity)
   ) +
   theme_minimal()
-ggsave(file.path(fig_dir, "leslie_vs_pbr_diff.png"), p_compare, width = 7, height = 4.5, dpi = 150)
+ggsave(file.path(fig_dir, "leslie_vs_pbr_diff.png"), p_compare, width = 7, height = 4.5, dpi = 150, bg = "white")
 
 # ---- 3. How much does the comparison depend on juvenile survival? -------
 #         (the parameter the PBR method does not need, and the one this
@@ -104,7 +104,7 @@ p_juv_sens <- ggplot(juv_sens, aes(x = s_juv, y = lambda_Leslie, colour = factor
   ) +
   theme_minimal() +
   theme(plot.subtitle = element_text(size = 9))
-ggsave(file.path(fig_dir, "leslie_juvenile_sensitivity.png"), p_juv_sens, width = 7, height = 4.5, dpi = 150)
+ggsave(file.path(fig_dir, "leslie_juvenile_sensitivity.png"), p_juv_sens, width = 7, height = 4.5, dpi = 150, bg = "white")
 
 cat("\nWrote", file.path(fig_dir, "leslie_vs_pbr_diff.png"), "and",
     file.path(fig_dir, "leslie_juvenile_sensitivity.png"), "\n")

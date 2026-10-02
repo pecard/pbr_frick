@@ -99,7 +99,7 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     )
 
   fig_H_curve <- file.path(fig_dir, "carrying_capacity_H_curve.png")
-  ggsave(fig_H_curve, width = 9.5, height = 5, dpi = 150, plot = {
+  ggsave(fig_H_curve, width = 9.5, height = 5, dpi = 150, bg = "white", plot = {
     curve_dt <- tidyr::expand_grid(project_thresholds, K_scenarios, r_scenarios,
                                     alpha = seq(0.5, 0.95, length.out = 100)) %>%
       mutate(H = Rmax * K * alpha * (1 - alpha))
@@ -269,7 +269,7 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     ungroup()
 
   fig_risk_sweep <- file.path(fig_dir, "carrying_capacity_risk_sweep.png")
-  ggsave(fig_risk_sweep, width = 8.5, height = 5, dpi = 150, plot = {
+  ggsave(fig_risk_sweep, width = 8.5, height = 5, dpi = 150, bg = "white", plot = {
     ggplot(sweep_dt, aes(x = H, y = p_collapse)) +
       geom_line(colour = "steelblue", linewidth = 0.9) +
       geom_point(colour = "steelblue", size = 1.8) +
@@ -356,7 +356,7 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
   ## stoch_summary for comparison but are not re-plotted in full --
   ## already shown to collapse regardless of distribution assumption.
   fig_stoch_check <- file.path(fig_dir, "carrying_capacity_stochastic_check.png")
-  ggsave(fig_stoch_check, width = 11, height = 7.5, dpi = 150, plot = {
+  ggsave(fig_stoch_check, width = 11, height = 7.5, dpi = 150, bg = "white", plot = {
     realistic_r_label <- "Realistic r (validated Leslie)"
     hline_dt <- stoch_check %>% filter(r_label == realistic_r_label) %>% select(project, N_target, K) %>%
       tidyr::crossing(ratio_label = ratio_scenarios$ratio_label) %>%
@@ -476,7 +476,7 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     mutate(pct_of_current_threshold = 100 * H_sustainable / threshold)
 
   fig_litter_sweep <- file.path(fig_dir, "carrying_capacity_litter_sweep.png")
-  ggsave(fig_litter_sweep, width = 9, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_litter_sweep, width = 9, height = 5.5, dpi = 150, bg = "white", plot = {
     ggplot(litter_sweep, aes(x = litter, y = H_sustainable)) +
       geom_line(colour = "darkorange", linewidth = 0.9) +
       geom_point(colour = "darkorange", size = 2.2) +

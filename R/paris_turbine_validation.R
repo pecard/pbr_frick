@@ -29,7 +29,7 @@ run_paris_turbine_validation <- function(fig_dir = "outputs/figures", sim) {
   overlap_n <- length(intersect(true_selected, observed_selected))
 
   fig_validation <- file.path(fig_dir, "paris_turbine_validation.png")
-  ggsave(fig_validation, width = 7.5, height = 6, dpi = 150, plot = {
+  ggsave(fig_validation, width = 7.5, height = 6, dpi = 150, bg = "white", plot = {
     ggplot(comparison, aes(x = true_rank, y = observed_rank)) +
       geom_abline(slope = 1, intercept = 0, linetype = "dotted", colour = "grey50") +
       geom_vline(xintercept = n_selected + 0.5, linetype = "dotted", colour = "steelblue") +

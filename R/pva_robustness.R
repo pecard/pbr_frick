@@ -170,7 +170,7 @@ run_pva_robustness <- function(fig_dir, nmin_assumed) {
     tidyr::unnest_wider(risk)
 
   fig_pva_robustness <- file.path(fig_dir, "pva_robustness.png")
-  ggsave(fig_pva_robustness, width = 10.5, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_pva_robustness, width = 10.5, height = 5.5, dpi = 150, bg = "white", plot = {
     ggplot(pva_robustness_table, aes(x = reorder(sensitivity, p_decline), y = p_decline, fill = is_bounding_scenario)) +
       geom_col() +
       geom_text(aes(label = sprintf("%.0f%%", p_decline)), hjust = -0.15, size = 3) +

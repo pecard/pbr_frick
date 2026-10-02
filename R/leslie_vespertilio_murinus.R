@@ -101,7 +101,7 @@ p_sens <- ggplot(sens_grid, aes(x = s_adult, y = s_juv, fill = lambda_Leslie)) +
   theme_minimal() +
   theme(strip.text = element_text(face = "bold"), plot.subtitle = element_text(size = 8))
 
-ggsave(file.path(fig_dir, "leslie_vespertilio_sensitivity.png"), p_sens, width = 11, height = 4, dpi = 150)
+ggsave(file.path(fig_dir, "leslie_vespertilio_sensitivity.png"), p_sens, width = 11, height = 4, dpi = 150, bg = "white")
 
 # ---- 3. Elasticity decomposition: does adult survival still dominate? ---
 elasticity_leslie <- function(s_adult, s_juv, alpha, fecundity, eps = 1e-4) {

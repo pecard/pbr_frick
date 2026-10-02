@@ -121,7 +121,7 @@ run_curtailment_effectiveness_did <- function(fig_dir,
     mutate(curtailed_control_ratio = rate_curtailed_TRUE / rate_curtailed_FALSE)
 
   fig_did <- file.path(fig_dir, "curtailment_effectiveness_did.png")
-  ggsave(fig_did, width = 9, height = 5, dpi = 150, plot = {
+  ggsave(fig_did, width = 9, height = 5, dpi = 150, bg = "white", plot = {
     ggplot(did_results, aes(x = rate_ratio, y = model)) +
       geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
       geom_pointrange(aes(xmin = rate_ratio_low, xmax = rate_ratio_high), colour = "steelblue4", size = 0.8) +

@@ -105,7 +105,7 @@ run_adaptive_management_real <- function(fig_dir,
 
   trigger_colours <- c(GREEN = "forestgreen", AMBER = "orange", RED = "firebrick")
   fig_real_dashboard <- file.path(fig_dir, "adaptive_management_real.png")
-  ggsave(fig_real_dashboard, width = 11, height = 6.5, dpi = 150, plot = {
+  ggsave(fig_real_dashboard, width = 11, height = 6.5, dpi = 150, bg = "white", plot = {
     ggplot(mri_data, aes(x = week)) +
       geom_ribbon(aes(ymin = lcl_cum, ymax = ucl_cum), fill = "grey70", alpha = 0.3) +
       geom_line(aes(y = expected_cum), linetype = "dashed", colour = "grey30", linewidth = 0.6) +
@@ -208,7 +208,7 @@ run_adaptive_management_real <- function(fig_dir,
   )
 
   fig_real_turbine_pareto <- file.path(fig_dir, "turbine_pareto_real.png")
-  ggsave(fig_real_turbine_pareto, width = 10, height = 11, dpi = 150, plot = {
+  ggsave(fig_real_turbine_pareto, width = 10, height = 11, dpi = 150, bg = "white", plot = {
     turbine_pareto_by_project[[1]]$plot / turbine_pareto_by_project[[2]]$plot
   })
 

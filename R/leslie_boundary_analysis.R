@@ -149,7 +149,7 @@ baseline_point <- tibble::tibble(s_adult = baseline$s_adult, litter = baseline$l
                                   scenario = "Baseline S_juv & breeding fraction")
 
 fig_boundary_surface <- file.path(fig_dir, "leslie_boundary_surface.png")
-ggsave(fig_boundary_surface, width = 10, height = 4.8, dpi = 150, plot = {
+ggsave(fig_boundary_surface, width = 10, height = 4.8, dpi = 150, bg = "white", plot = {
   ggplot(surface_grid, aes(x = s_adult, y = litter, z = lambda)) +
     geom_raster(aes(fill = lambda)) +
     geom_contour(breaks = benchmarks, aes(colour = after_stat(factor(level))), linewidth = 0.8) +

@@ -140,7 +140,7 @@ run_turbine_2027_classification <- function(fig_dir = "outputs/figures",
     select(project, turbine_anon, official_estimated_mortality, pct_of_boundary)
 
   fig_2027_classification <- file.path(fig_dir, "turbine_2027_classification.png")
-  ggsave(fig_2027_classification, width = 10.5, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_2027_classification, width = 10.5, height = 5.5, dpi = 150, bg = "white", plot = {
     plot_dt <- classification_all %>%
       mutate(group_plot = factor(
         ifelse(grepl("watch-list", group), "Core (curtailed) -- watch-list", gsub(" -- watch-list \\(marginal\\)", "", group)),

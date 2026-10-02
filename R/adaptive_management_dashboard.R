@@ -133,7 +133,7 @@ print(as.data.frame(current_status))
 trigger_colours <- c(GREEN = "forestgreen", AMBER = "orange", RED = "firebrick")
 
 fig_adaptive_dashboard <- file.path(fig_dir, "adaptive_management_dashboard.png")
-ggsave(fig_adaptive_dashboard, width = 11, height = 6.5, dpi = 150, plot = {
+ggsave(fig_adaptive_dashboard, width = 11, height = 6.5, dpi = 150, bg = "white", plot = {
   ggplot(dashboard_data, aes(x = week)) +
     geom_ribbon(aes(ymin = lcl_cum, ymax = ucl_cum), fill = "grey70", alpha = 0.3) +
     geom_line(aes(y = expected_cum), linetype = "dashed", colour = "grey30", linewidth = 0.6) +
@@ -291,7 +291,7 @@ cat(sprintf("(%.0f%% of turbines, accounting for %.0f%% of the project's remaini
             100 * n_curtailed / n_turbines, 100 * turbines_allocated$cum_pct[n_curtailed]))
 
 fig_turbine_pareto <- file.path(fig_dir, "turbine_pareto_allocation.png")
-ggsave(fig_turbine_pareto, width = 9, height = 5.5, dpi = 150, plot = {
+ggsave(fig_turbine_pareto, width = 9, height = 5.5, dpi = 150, bg = "white", plot = {
   ggplot(turbines_allocated, aes(x = reorder(turbine_id, -expected_remaining))) +
     geom_col(aes(y = expected_remaining, fill = curtail)) +
     geom_line(aes(y = cum_pct * max(expected_remaining), group = 1), colour = "grey20", linewidth = 0.6) +

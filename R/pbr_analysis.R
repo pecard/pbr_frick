@@ -154,7 +154,7 @@ run_pbr_analysis <- function(fig_dir) {
   }
 
   fig_elasticity_survival <- file.path(fig_dir, "elasticity_survival.png")
-  ggsave(fig_elasticity_survival, width = 7, height = 4.5, dpi = 150, plot = {
+  ggsave(fig_elasticity_survival, width = 7, height = 4.5, dpi = 150, bg = "white", plot = {
     ggplot(sens_grid, aes(x = s, y = alpha)) +
       geom_raster(aes(fill = E_s), interpolate = TRUE) +
       lambda_contour() +
@@ -167,7 +167,7 @@ run_pbr_analysis <- function(fig_dir) {
   })
 
   fig_elasticity_alpha <- file.path(fig_dir, "elasticity_alpha.png")
-  ggsave(fig_elasticity_alpha, width = 7, height = 4.5, dpi = 150, plot = {
+  ggsave(fig_elasticity_alpha, width = 7, height = 4.5, dpi = 150, bg = "white", plot = {
     ggplot(sens_grid, aes(x = s, y = alpha)) +
       geom_raster(aes(fill = E_alpha), interpolate = TRUE) +
       lambda_contour() +
@@ -180,7 +180,7 @@ run_pbr_analysis <- function(fig_dir) {
   })
 
   fig_lambda_max <- file.path(fig_dir, "lambda_max.png")
-  ggsave(fig_lambda_max, width = 8, height = 4.5, dpi = 150, plot = {
+  ggsave(fig_lambda_max, width = 8, height = 4.5, dpi = 150, bg = "white", plot = {
     ggplot(sens_grid, aes(x = s, y = alpha)) +
       geom_raster(aes(fill = lambda_max), interpolate = TRUE) +
       lambda_contour() +
@@ -217,7 +217,7 @@ run_pbr_analysis <- function(fig_dir) {
   )
 
   fig_response_surfaces <- file.path(fig_dir, "response_surfaces.png")
-  ggsave(fig_response_surfaces, width = 7.5, height = 7, dpi = 150, plot = {
+  ggsave(fig_response_surfaces, width = 7.5, height = 7, dpi = 150, bg = "white", plot = {
     ggplot(surface_grid, aes(x = s, y = alpha)) +
       geom_raster(aes(fill = PBR), interpolate = TRUE) +
       geom_contour(aes(z = PBR, colour = after_stat(factor(level))),
@@ -394,7 +394,7 @@ run_pbr_analysis <- function(fig_dir) {
   )
 
   fig_pbr_density <- file.path(fig_dir, "pbr_density.png")
-  ggsave(fig_pbr_density, width = 7, height = 4, dpi = 150, plot = {
+  ggsave(fig_pbr_density, width = 7, height = 4, dpi = 150, bg = "white", plot = {
     ggplot(sim, aes(x = PBR)) +
       geom_density(fill = "grey80", colour = "grey40") +
       geom_vline(data = pbr_thresholds, aes(xintercept = threshold, colour = facility),
@@ -452,7 +452,7 @@ run_pbr_analysis <- function(fig_dir) {
     )
 
   fig_leslie_maturation <- file.path(fig_dir, "leslie_maturation_delay.png")
-  ggsave(fig_leslie_maturation, width = 7.5, height = 4.5, dpi = 150, plot = {
+  ggsave(fig_leslie_maturation, width = 7.5, height = 4.5, dpi = 150, bg = "white", plot = {
     ggplot(leslie_grid, aes(x = s_adult, y = lambda_Leslie, colour = n_stages_label)) +
       geom_line(linewidth = 0.9) +
       geom_hline(yintercept = c(1.20, 1.24), linetype = "dashed", colour = c("cyan", "chartreuse")) +
@@ -557,7 +557,7 @@ run_pbr_analysis <- function(fig_dir) {
     )
 
   fig_pva_projection <- file.path(fig_dir, "pva_25yr_projection.png")
-  ggsave(fig_pva_projection, width = 11, height = 4.5, dpi = 150, plot = {
+  ggsave(fig_pva_projection, width = 11, height = 4.5, dpi = 150, bg = "white", plot = {
     ggplot(pva_summary_by_year, aes(x = year)) +
       geom_ribbon(aes(ymin = q05, ymax = q95, fill = scenario), alpha = 0.15) +
       geom_ribbon(aes(ymin = q25, ymax = q75, fill = scenario), alpha = 0.3) +
@@ -680,7 +680,7 @@ run_pbr_analysis <- function(fig_dir) {
                                              scenario = "Baseline S_juv & breeding fraction")
 
   fig_leslie_boundary_surface <- file.path(fig_dir, "leslie_boundary_surface.png")
-  ggsave(fig_leslie_boundary_surface, width = 10, height = 5.2, dpi = 150, plot = {
+  ggsave(fig_leslie_boundary_surface, width = 10, height = 5.2, dpi = 150, bg = "white", plot = {
     ggplot(surface_grid_boundary, aes(x = s_adult, y = litter, z = lambda)) +
       geom_raster(aes(fill = lambda)) +
       geom_contour(breaks = finite_breaks(lambda_max_benchmarks), aes(colour = after_stat(factor(level))), linewidth = 0.8) +
@@ -752,7 +752,7 @@ run_pbr_analysis <- function(fig_dir) {
   )
 
   fig_nmin_lambda_surface <- file.path(fig_dir, "nmin_lambda_surface.png")
-  ggsave(fig_nmin_lambda_surface, width = 8.5, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_nmin_lambda_surface, width = 8.5, height = 5.5, dpi = 150, bg = "white", plot = {
     ggplot(nmin_lambda_grid, aes(x = N, y = lambda)) +
       geom_raster(aes(fill = PBR), interpolate = TRUE) +
       geom_contour(aes(z = PBR, colour = after_stat(factor(level))), breaks = finite_breaks(nmin_lambda_breaks), linewidth = 0.45) +

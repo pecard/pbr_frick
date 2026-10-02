@@ -48,7 +48,7 @@ lambda_refs <- tibble::tibble(
 )
 
 fig_nmin_lambda_surface <- file.path(fig_dir, "nmin_lambda_boundary_surface.png")
-ggsave(fig_nmin_lambda_surface, width = 11, height = 6, dpi = 150, plot = {
+ggsave(fig_nmin_lambda_surface, width = 11, height = 6, dpi = 150, bg = "white", plot = {
   ggplot(surface_grid, aes(x = N, y = lambda)) +
     geom_raster(aes(fill = PBR), interpolate = TRUE) +
     geom_contour(aes(z = PBR, colour = after_stat(factor(level))), breaks = pbr_breaks, linewidth = 0.4) +
@@ -103,7 +103,7 @@ cat("\n=== Nmin required for the observed mortality to sit exactly at each refer
 print(as.data.frame(required_n_tbl))
 
 fig_fatality_fraction <- file.path(fig_dir, "fatality_fraction_of_nmin.png")
-ggsave(fig_fatality_fraction, width = 9, height = 5.5, dpi = 150, plot = {
+ggsave(fig_fatality_fraction, width = 9, height = 5.5, dpi = 150, bg = "white", plot = {
   ggplot(diag_tbl, aes(x = N, y = pct_of_N)) +
     geom_rect(aes(xmin = 2000, xmax = 120000, ymin = min(pbr_fraction_bounds$fraction) * 100,
                   ymax = max(pbr_fraction_bounds$fraction) * 100),

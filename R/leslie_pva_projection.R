@@ -180,6 +180,6 @@ p <- ggplot(summary_by_year, aes(x = year)) +
   ) +
   theme_minimal() +
   theme(strip.text = element_text(face = "bold"), plot.subtitle = element_text(size = 8))
-ggsave(file.path(fig_dir, "leslie_pva_25yr_projection.png"), p, width = 11, height = 4.5, dpi = 150)
+ggsave(file.path(fig_dir, "leslie_pva_25yr_projection.png"), p, width = 11, height = 4.5, dpi = 150, bg = "white")
 
 cat("\nWrote", file.path(fig_dir, "leslie_pva_25yr_projection.png"), "\n")

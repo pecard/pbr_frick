@@ -126,7 +126,7 @@ run_curtailment_year_effectiveness <- function(fig_dir = "outputs/figures",
     ungroup()
 
   fig_curtailment_year <- file.path(fig_dir, "curtailment_year_effectiveness.png")
-  ggsave(fig_curtailment_year, width = 11, height = 5.5, dpi = 150, plot = {
+  ggsave(fig_curtailment_year, width = 11, height = 5.5, dpi = 150, bg = "white", plot = {
     ggplot(cumulative_dt, aes(x = week)) +
       geom_line(aes(y = counterfactual_cum, linetype = "No-curtailment counterfactual (2025 pattern, +1 yr)"), colour = "firebrick", linewidth = 0.8) +
       geom_line(aes(y = actual_cum, linetype = "Actual (2026, with curtailment)"), colour = "forestgreen", linewidth = 1) +

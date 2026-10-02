@@ -149,7 +149,7 @@ p <- ggplot(grid, aes(x = s_adult, y = lambda_Leslie, colour = n_stages_label)) 
   ) +
   theme_minimal() +
   theme(plot.subtitle = element_text(size = 8))
-ggsave(file.path(fig_dir, "leslie_dekker_maturation_delay.png"), p, width = 7.5, height = 4.5, dpi = 150)
+ggsave(file.path(fig_dir, "leslie_dekker_maturation_delay.png"), p, width = 7.5, height = 4.5, dpi = 150, bg = "white")
 
 cat("\nlambda at Safi's S_adult=0.76, by number of pre-reproductive stages:\n")
 print(grid %>% filter(abs(s_adult - S_af) < 0.01) %>% select(n_stages, lambda_Leslie) %>% distinct())

@@ -26,7 +26,7 @@ run_paris_operational_analysis <- function(fig_dir = "outputs/figures", sim = NU
   n_selected <- sum(turbine_hist$curtailed)
 
   fig_turbine_pareto <- file.path(fig_dir, "paris_turbine_pareto.png")
-  ggsave(fig_turbine_pareto, width = 9, height = 5, dpi = 150, plot = {
+  ggsave(fig_turbine_pareto, width = 9, height = 5, dpi = 150, bg = "white", plot = {
     ggplot(turbine_hist, aes(x = reorder(turbine_anon, rank))) +
       geom_col(aes(y = corrected, fill = curtailed), alpha = 0.85) +
       geom_line(aes(y = cum_pct * max(corrected), group = 1), colour = "grey20", linewidth = 0.6) +
@@ -64,7 +64,7 @@ run_paris_operational_analysis <- function(fig_dir = "outputs/figures", sim = NU
   effectiveness <- full_join(baseline_cum, response_cum, by = "week") %>% arrange(week)
 
   fig_effectiveness <- file.path(fig_dir, "paris_effectiveness.png")
-  ggsave(fig_effectiveness, width = 8, height = 4.8, dpi = 150, plot = {
+  ggsave(fig_effectiveness, width = 8, height = 4.8, dpi = 150, bg = "white", plot = {
     ggplot(effectiveness, aes(x = week)) +
       geom_line(aes(y = counterfactual_cum, linetype = "No-response counterfactual (Baseline pattern)"), colour = "firebrick", linewidth = 0.9) +
       geom_line(aes(y = actual_cum, linetype = "Actual (Response, with curtailment)"), colour = "forestgreen", linewidth = 1.1) +
