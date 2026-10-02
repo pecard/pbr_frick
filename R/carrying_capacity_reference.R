@@ -36,7 +36,14 @@
 ## this is a bounding scenario, not a calibrated K).
 ##
 
-suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2) })
+if (!requireNamespace("ggrepel", quietly = TRUE)) {
+  message("Installing missing package needed for the litter-sweep figure: ggrepel...")
+  tryCatch(install.packages("ggrepel"), error = function(e) stop(
+    "Could not install 'ggrepel' automatically (", conditionMessage(e), "). Install manually and re-run."
+  ))
+}
+
+suppressPackageStartupMessages({ library(dplyr); library(tidyr); library(ggplot2); library(ggrepel) })
 
 run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
                                              alpha_grid = c(0.5, 0.6, 0.7, 0.8, 0.9),
@@ -369,12 +376,134 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
       theme(plot.subtitle = element_text(size = 9.5), strip.text = element_text(size = 8.5, face = "bold"), legend.position = "bottom")
   })
 
+  ## ---- 4. Putting the realistic-r choice in perspective: sweep r across
+  ## the plausibility range THIS NOTE has already established (not a new
+  ## invented range) and find H_sustainable at each point -- shows
+  ## directly how much of a biologically plausible fecundity/structure
+  ## change it would take for the carrying-capacity standard to converge
+  ## with the current PBR threshold (Paulo, 2026-10: "onde conseguimos
+  ## chegar a um cenario relativamente real").
+  ##
+  ## Lever used: litter size. Safi (2006) + Zhigalin & Moskvitina (2017)
+  ## give suburban colonies 1.8 pups/female (the value used throughout
+  ## this note) vs urban colonies 2.7-2.9 (upper bound), independently
+  ## corroborated (references/leslie_matrix_parametrisation.md). Holding
+  ## the early-maturity (alpha=1) 2-stage structure fixed (the one this
+  ## simulator already uses) and only moving litter size across that
+  ## established empirical range moves lambda from 1.05 to ~1.17 (see
+  ## R/leslie_vespertilio_murinus.R) -- entirely within evidence already
+  ## in this analysis, not a fresh assumption.
+  ##
+  ## Separately, that same reference note flags that Safi's survival
+  ## rates are naive return rates (marked-in-year-t, recaptured-in-t+1),
+  ## not corrected for imperfect detection via an open-population model
+  ## (e.g. Cormack-Jolly-Seber) -- a well-documented source of downward
+  ## bias in survival (and hence lambda) estimates. This means even the
+  ## "urban" end of the swept range below is plausibly still an
+  ## UNDERESTIMATE of the true rate, not an optimistic ceiling -- noted
+  ## here, not quantified (no correction factor for this bias was
+  ## located for this species).
+  simulate_constant_harvest_litter <- function(n0_juv, n0_adult, n_years, H, K, litter, cv = pva_vital_rate_cv,
+                                                juv_mortality_ratio = 1) {
+    bp_s_adult <- beta_params(leslie_s_adult_f, cv)
+    bp_s_juv <- beta_params(leslie_s_juv, cv)
+    bp_p_breed <- beta_params(leslie_p_breed, cv)
+    n_juv <- as.integer(round(n0_juv)); n_adult <- as.integer(round(n0_adult))
+    traj <- numeric(n_years + 1); traj[1] <- 2 * (n_juv + n_adult)
+    for (yr in seq_len(n_years)) {
+      s_adult_t <- rbeta(1, bp_s_adult$shape1, bp_s_adult$shape2)
+      s_juv_t <- rbeta(1, bp_s_juv$shape1, bp_s_juv$shape2)
+      p_breed_t <- rbeta(1, bp_p_breed$shape1, bp_p_breed$shape2)
+      density_factor <- max(0, 1 - (2 * (n_juv + n_adult)) / K)
+      n_breeders <- rbinom(1, n_adult, p_breed_t)
+      n_pups_total <- rpois(1, n_breeders * litter * density_factor)
+      n_female_pups <- rbinom(1, n_pups_total, leslie_sex_ratio)
+      n_juv_recruits <- rbinom(1, n_female_pups, s_juv_t)
+      n_juv_survive <- rbinom(1, n_juv, s_juv_t)
+      n_adult_survive <- rbinom(1, n_adult, s_adult_t)
+      juv_weight <- n_juv_survive * juv_mortality_ratio
+      adult_weight <- n_adult_survive
+      total_weight <- juv_weight + adult_weight
+      if (total_weight > 0 && H > 0) {
+        H_juv <- H * juv_weight / total_weight; H_adult <- H * adult_weight / total_weight
+      } else { H_juv <- 0; H_adult <- 0 }
+      juv_after_H <- as.integer(round(max(0, n_juv_survive - H_juv)))
+      adult_after_H <- as.integer(round(max(0, n_adult_survive - H_adult)))
+      n_adult_next <- juv_after_H + adult_after_H
+      n_juv <- n_juv_recruits; n_adult <- n_adult_next
+      traj[yr + 1] <- 2 * (n_juv + n_adult)
+    }
+    traj
+  }
+
+  find_sustainable_H_litter <- function(litter, N0, K, acceptable_risk = 0.10,
+                                         juv_mortality_ratio = 1.3, search_reps = 300,
+                                         tol = 0.5, max_iter = 25) {
+    F_lit <- leslie_p_breed * litter * leslie_sex_ratio * leslie_s_juv
+    A_lit <- build_dekker_stage_matrix_r(2, leslie_s_juv, leslie_s_adult_f, F_lit)
+    lambda_lit <- Re(eigen(A_lit)$values[1])
+    sd_lit <- Re(eigen(A_lit)$vectors[, 1]); sd_lit <- sd_lit / sum(sd_lit)
+    nf <- N0 / 2; nj <- round(nf * sd_lit[1]); na <- nf - nj
+    run_risk_lit <- function(H, n_reps) {
+      set.seed(pva_seed)
+      reps <- replicate(n_reps, simulate_constant_harvest_litter(nj, na, pva_n_years, H, K, litter,
+                                                                   juv_mortality_ratio = juv_mortality_ratio))
+      mean(reps[pva_n_years + 1, ] < 0.1 * K) * 100 / 100
+    }
+    H_lo <- 0; H_hi <- K * 0.15
+    for (iter in seq_len(max_iter)) {
+      H_mid <- (H_lo + H_hi) / 2
+      risk <- run_risk_lit(H_mid, search_reps)
+      if (risk > acceptable_risk) H_hi <- H_mid else H_lo <- H_mid
+      if ((H_hi - H_lo) < tol) break
+    }
+    tibble::tibble(litter = litter, lambda = lambda_lit, r = log(lambda_lit), H_sustainable = H_lo,
+                   p_collapse_confirmed = run_risk_lit(H_lo, pva_n_reps) * 100)
+  }
+
+  litter_scenarios <- tibble::tibble(
+    litter = c(1.8, 2.1, 2.4, 2.7, 2.9),
+    litter_label = c("Suburban (1.8, this note's value)", "", "", "", "Urban upper bound (2.9)")
+  )
+  K_sweep <- density_proxy_high * project_footprint_km2
+  N_target_sweep <- 0.8 * K_sweep
+  litter_sweep <- lapply(litter_scenarios$litter, function(lit) {
+    find_sustainable_H_litter(lit, N_target_sweep, K_sweep, acceptable_risk = 0.10,
+                               juv_mortality_ratio = juv_mortality_ratio)
+  }) %>% bind_rows() %>%
+    left_join(litter_scenarios, by = "litter") %>%
+    tidyr::crossing(project_thresholds) %>%
+    mutate(pct_of_current_threshold = 100 * H_sustainable / threshold)
+
+  fig_litter_sweep <- file.path(fig_dir, "carrying_capacity_litter_sweep.png")
+  ggsave(fig_litter_sweep, width = 9, height = 5.5, dpi = 150, plot = {
+    ggplot(litter_sweep, aes(x = litter, y = H_sustainable)) +
+      geom_line(colour = "darkorange", linewidth = 0.9) +
+      geom_point(colour = "darkorange", size = 2.2) +
+      geom_hline(data = project_thresholds, aes(yintercept = threshold), linetype = "dotted", colour = "grey30") +
+      ggrepel::geom_text_repel(data = litter_sweep %>% filter(litter_label != ""),
+                                aes(label = litter_label), size = 2.8, nudge_y = 8, seed = 1) +
+      facet_wrap(~project) +
+      labs(
+        x = "Litter size (pups/breeding female/year)", y = "Empirically-sustainable H (alpha=0.8, 10% risk)",
+        title = "H sustainable vs. fecundity, across this note's own established plausibility range",
+        subtitle = paste0(
+          "Dotted: current imposed PBR threshold. Suburban-to-urban litter range (Zhigalin & Moskvitina 2017)\n",
+          "is the only lever swept here; Safi survival rates likely underestimate true survival on top of this (not quantified)."
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9))
+  })
+
   list(
     cc_table = cc_table,
     stoch_summary = stoch_summary,
     sustainable_H_table = sustainable_H_table,
+    litter_sweep = litter_sweep,
     fig_H_curve = fig_H_curve,
     fig_stoch_check = fig_stoch_check,
-    fig_risk_sweep = fig_risk_sweep
+    fig_risk_sweep = fig_risk_sweep,
+    fig_litter_sweep = fig_litter_sweep
   )
 }
