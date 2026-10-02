@@ -851,6 +851,143 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
       theme(plot.subtitle = element_text(size = 8.7), legend.position = "bottom")
   })
 
+  ## ---- 7. Joint (not one-at-a-time) Monte Carlo over the family/order-
+  ## informed biological envelope (references/leslie_matrix_parametrisation.md,
+  ## "Family/order-level envelope" section) -- Paulo, 2026-10: "exigir que
+  ## o PBR ou H seja sempre apresentado com intervalo plausivel ... nós
+  ## poderiamos buscar parametros biologicos de especies proximas ... para
+  ## sugerir a plausibilidade do envelope biologico". Section 5 moved ONE
+  ## vital rate at a time, holding the other three at Safi's point values --
+  ## useful for attributing sensitivity, but not a genuine uncertainty
+  ## interval (the four rates are not independently pinned down in reality
+  ## either, and a real population draws all four jointly, not one-at-a-
+  ## time). This section draws all four TOGETHER, every draw run through
+  ## the same stochastic engine as the rest of this script, and reports H
+  ## as a distribution, not a point.
+  ##
+  ## Distributions: s_adult centred on Safi's 0.76 (independently confirmed
+  ## close to the Lentini et al. 2015 order-wide meta-analytic mean of
+  ## 0.774, 44 species/7 families) with spread matching that paper's own
+  ## 95% CI [0.617, 0.890]; s_juv centred on Safi's 0.62 with spread
+  ## matching the confamilial range found across *M. lucifugus*,
+  ## *M. daubentonii* and *E. fuscus* (0.23-0.71); p_breed centred on
+  ## Safi's 0.87 with spread matching *E. fuscus*'s first-time-breeder to
+  ## experienced-breeder range (0.64-0.98, this note's own established
+  ## ceiling); litter drawn Uniform across V. murinus's OWN documented
+  ## suburban-urban range (1.3-2.9) -- deliberately not widened using
+  ## confamilial litter data, which points toward smaller litters for most
+  ## Vespertilionidae, not larger (see the references note).
+  envelope_dist <- function(mean, half_width_95) {
+    sd_eq <- half_width_95 / 1.96
+    bp <- beta_params(mean, sd_eq / mean)
+    function(n) rbeta(n, bp$shape1, bp$shape2)
+  }
+  draw_s_adult <- envelope_dist(leslie_s_adult_f, (0.890 - 0.617) / 2)
+  draw_s_juv   <- envelope_dist(leslie_s_juv, (0.71 - 0.23) / 2)
+  draw_p_breed <- envelope_dist(leslie_p_breed, (0.98 - 0.64) / 2)
+
+  n_envelope_draws <- 200
+  set.seed(pva_seed)
+  envelope_draws <- tibble::tibble(
+    draw_id = seq_len(n_envelope_draws),
+    s_adult = draw_s_adult(n_envelope_draws),
+    s_juv   = draw_s_juv(n_envelope_draws),
+    p_breed = draw_p_breed(n_envelope_draws),
+    litter  = runif(n_envelope_draws, leslie_boundary_range_litter[1], leslie_boundary_range_litter[2])
+  ) %>%
+    rowwise() %>%
+    mutate(lambda = lambda_of_vitals(s_juv, s_adult, p_breed, litter)) %>%
+    ungroup()
+
+  ## 7a. Distribution of the empirically-sustainable H (10% risk, alpha=0.8)
+  ## across the joint envelope -- cheaper search settings than Section 5's
+  ## single breakeven points (this runs 200x), still reportable.
+  envelope_draws <- envelope_draws %>%
+    rowwise() %>%
+    mutate(H_sustainable = find_sustainable_H_general(
+      N_target_elastic, K_elastic, s_juv = s_juv, s_adult = s_adult, p_breed = p_breed, litter = litter,
+      acceptable_risk = 0.10, juv_mortality_ratio = juv_mortality_ratio,
+      search_reps = 120, confirm_reps = 1, max_iter = 12
+    )$H_sustainable) %>%
+    ungroup()
+
+  H_envelope_percentiles <- tibble::tibble(
+    percentile = c("5th", "25th", "median", "75th", "95th"),
+    H_sustainable = quantile(envelope_draws$H_sustainable, probs = c(0.05, 0.25, 0.5, 0.75, 0.95))
+  ) %>%
+    tidyr::crossing(project_thresholds) %>%
+    mutate(pct_of_current_threshold = round(100 * H_sustainable / threshold))
+
+  fig_envelope_H <- file.path(fig_dir, "carrying_capacity_envelope_H.png")
+  ggsave(fig_envelope_H, width = 9, height = 5, dpi = 150, bg = "white", plot = {
+    ggplot(envelope_draws, aes(x = H_sustainable)) +
+      geom_histogram(bins = 25, fill = "steelblue", alpha = 0.75, colour = "white") +
+      geom_vline(data = project_thresholds, aes(xintercept = threshold, linetype = project), colour = "grey20") +
+      geom_vline(xintercept = median(envelope_draws$H_sustainable), colour = "darkorange", linewidth = 0.9) +
+      annotate("text", x = median(envelope_draws$H_sustainable), y = Inf,
+               label = paste0("Median = ", round(median(envelope_draws$H_sustainable))),
+               colour = "darkorange", vjust = 1.4, hjust = -0.05, size = 3) +
+      scale_linetype_manual(name = "Current imposed\nPBR threshold", values = c("dashed", "dotted")) +
+      labs(
+        x = "Empirically-sustainable H (alpha=0.8, 10% risk), one joint draw per bar",
+        y = paste0("Count (of ", n_envelope_draws, " joint draws)"),
+        title = "Carrying-capacity H as a distribution, not a point: joint draws over the family/order-informed envelope",
+        subtitle = paste0(
+          "Each draw moves S_adult, S_juv, p_breed and litter TOGETHER (not one-at-a-time as in the breakeven table),\n",
+          "within ranges grounded in Lentini et al. (2015), Sendor & Simon (2003), Frick et al. (2010), O'Shea et al. (2010)\n",
+          "and this note's own V. murinus-specific sources (references/leslie_matrix_parametrisation.md)."
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 8.3))
+  })
+
+  ## 7b. The flip side of the same question, and cheaper to compute: fixing
+  ## H at the CURRENT imposed PBR threshold, what does quasi-extinction risk
+  ## look like across the same joint envelope? Directly answers whether
+  ## today's policy is safe once the biological uncertainty this note has
+  ## now documented is accounted for, not just at the Safi point estimate.
+  run_risk_at_H <- function(s_juv, s_adult, p_breed, litter, H, K, N0, n_reps) {
+    sd_v <- stable_dist_of_vitals(s_juv, s_adult, p_breed, litter)
+    nf <- N0 / 2; nj <- round(nf * sd_v[1]); na <- nf - nj
+    reps <- replicate(n_reps, simulate_constant_harvest_general(
+      nj, na, pva_n_years, H, K, s_juv, s_adult, p_breed, litter, juv_mortality_ratio = juv_mortality_ratio))
+    mean(reps[pva_n_years + 1, ] < 0.1 * K) * 100
+  }
+  risk_at_pbr_dt <- tidyr::crossing(
+    envelope_draws %>% select(draw_id, s_juv, s_adult, p_breed, litter), project_thresholds
+  ) %>%
+    rowwise() %>%
+    mutate(p_collapse_at_pbr = run_risk_at_H(s_juv, s_adult, p_breed, litter, H = threshold, K = K_elastic,
+                                              N0 = N_target_elastic, n_reps = 150)) %>%
+    ungroup()
+
+  risk_at_pbr_summary <- risk_at_pbr_dt %>%
+    group_by(project, threshold) %>%
+    summarise(
+      pct_draws_above_10pct_risk = round(100 * mean(p_collapse_at_pbr > 10)),
+      pct_draws_above_20pct_risk = round(100 * mean(p_collapse_at_pbr > 20)),
+      median_p_collapse = round(median(p_collapse_at_pbr), 1),
+      .groups = "drop"
+    )
+
+  fig_envelope_risk_at_pbr <- file.path(fig_dir, "carrying_capacity_envelope_risk_at_pbr.png")
+  ggsave(fig_envelope_risk_at_pbr, width = 9, height = 5, dpi = 150, bg = "white", plot = {
+    ggplot(risk_at_pbr_dt, aes(x = p_collapse_at_pbr)) +
+      geom_histogram(bins = 25, fill = "firebrick", alpha = 0.75, colour = "white") +
+      geom_vline(data = tibble::tibble(acceptable_risk = acceptable_risk_grid * 100),
+                 aes(xintercept = acceptable_risk), linetype = "dotted", colour = "grey30") +
+      facet_wrap(~project) +
+      labs(
+        x = "P(falls below quasi-extinction in 25 yr), %, removal fixed at the current PBR threshold",
+        y = paste0("Count (of ", n_envelope_draws, " joint draws)"),
+        title = "Is the CURRENT PBR threshold safe across the biological envelope, not just at Safi's point estimate?",
+        subtitle = "Dotted verticals: acceptable-risk conventions (5/10/20%). Same joint draws as the H-distribution figure above."
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9))
+  })
+
   list(
     cc_table = cc_table,
     stoch_summary = stoch_summary,
@@ -860,12 +997,17 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     elasticity_sweep = elasticity_sweep,
     tornado_table = tornado_table,
     sweep_dt_combined = sweep_dt_combined,
+    envelope_draws = envelope_draws,
+    H_envelope_percentiles = H_envelope_percentiles,
+    risk_at_pbr_summary = risk_at_pbr_summary,
     fig_H_curve = fig_H_curve,
     fig_stoch_check = fig_stoch_check,
     fig_risk_sweep = fig_risk_sweep,
     fig_risk_sweep_plausible = fig_risk_sweep_plausible,
     fig_litter_sweep = fig_litter_sweep,
     fig_elasticity_vitals = fig_elasticity_vitals,
-    fig_tornado = fig_tornado
+    fig_tornado = fig_tornado,
+    fig_envelope_H = fig_envelope_H,
+    fig_envelope_risk_at_pbr = fig_envelope_risk_at_pbr
   )
 }
