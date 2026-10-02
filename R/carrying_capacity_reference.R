@@ -205,6 +205,84 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     )
   }
 
+  ## ---- 2b. Empirical search for the actually-sustainable H at a given
+  ## target, by simulation -- not the closed-form Schaefer shortcut,
+  ## which Section 2 already showed is too optimistic once realistic age
+  ## structure and stochasticity are in play. Binary search over H:
+  ## collapse risk is monotonically increasing in H, so bisection finds
+  ## the largest H keeping P(falls below quasi-extinction in n_years)
+  ## at or under an explicit, named acceptable_risk -- not left implicit.
+  ## Uses fewer reps during the search (directional signal only) and
+  ## reruns the converged H at full pva_n_reps for a reportable number.
+  find_sustainable_H <- function(N0, K, acceptable_risk, juv_mortality_ratio = 1.3,
+                                  H_upper = NULL, tol = 0.5, max_iter = 25, search_reps = 300) {
+    if (is.null(H_upper)) H_upper <- K * 0.1
+    H_lo <- 0; H_hi <- H_upper
+    for (iter in seq_len(max_iter)) {
+      H_mid <- (H_lo + H_hi) / 2
+      risk <- run_from_start(N0, H_mid, K, n_reps = search_reps, juv_mortality_ratio = juv_mortality_ratio)$p_collapse / 100
+      if (risk > acceptable_risk) H_hi <- H_mid else H_lo <- H_mid
+      if ((H_hi - H_lo) < tol) break
+    }
+    H_lo
+  }
+
+  acceptable_risk_grid <- c(0.05, 0.10, 0.20)
+  realistic_r <- r_validated
+  sustainable_H_table <- project_thresholds %>%
+    rowwise() %>%
+    reframe(
+      project = project, threshold = threshold,
+      K = density_proxy_high * project_footprint_km2,
+      N_target = 0.8 * K,
+      acceptable_risk = acceptable_risk_grid
+    ) %>%
+    rowwise() %>%
+    mutate(
+      H_sustainable = find_sustainable_H(N_target, K, acceptable_risk, juv_mortality_ratio = juv_mortality_ratio),
+      ## Confirm at full rep count -- the search uses fewer reps for speed.
+      p_collapse_confirmed = run_from_start(N_target, H_sustainable, K, juv_mortality_ratio = juv_mortality_ratio)$p_collapse,
+      pct_of_current_threshold = 100 * H_sustainable / threshold,
+      pct_of_closedform_H = 100 * H_sustainable / (realistic_r * K * 0.8 * 0.2)
+    ) %>%
+    ungroup()
+
+  ## Risk-vs-H sweep (one project -- K/threshold formulae are identical
+  ## across projects here, only the imposed threshold used for the %
+  ## comparison differs) for a visual of where the three acceptable-risk
+  ## points above actually sit relative to the closed-form H and the
+  ## current imposed threshold.
+  sweep_K <- sustainable_H_table$K[1]
+  sweep_N_target <- 0.8 * sweep_K
+  sweep_H_max <- realistic_r * sweep_K * 0.8 * 0.2
+  sweep_dt <- tibble::tibble(H = seq(0, sweep_H_max * 1.2, length.out = 18)) %>%
+    rowwise() %>%
+    mutate(p_collapse = run_from_start(sweep_N_target, H, sweep_K, n_reps = 400,
+                                        juv_mortality_ratio = juv_mortality_ratio)$p_collapse) %>%
+    ungroup()
+
+  fig_risk_sweep <- file.path(fig_dir, "carrying_capacity_risk_sweep.png")
+  ggsave(fig_risk_sweep, width = 8.5, height = 5, dpi = 150, plot = {
+    ggplot(sweep_dt, aes(x = H, y = p_collapse)) +
+      geom_line(colour = "steelblue", linewidth = 0.9) +
+      geom_point(colour = "steelblue", size = 1.8) +
+      geom_vline(xintercept = sweep_H_max, linetype = "dashed", colour = "firebrick") +
+      geom_hline(data = tibble::tibble(acceptable_risk = acceptable_risk_grid * 100),
+                 aes(yintercept = acceptable_risk), linetype = "dotted", colour = "grey40") +
+      annotate("text", x = sweep_H_max, y = 102, label = "Closed-form\nSchaefer H", colour = "firebrick",
+                size = 3, hjust = 1.05) +
+      labs(
+        x = "Constant annual removal H", y = "P(falls below quasi-extinction in 25 yr), %",
+        title = "Empirically-found risk curve at alpha=0.8 (realistic r, simulation, not closed-form)",
+        subtitle = paste0(
+          "Dotted horizontals: acceptable-risk conventions (5/10/20%). Dashed red: what the Schaefer\n",
+          "formula alone would have called 'sustainable' -- already well into high-risk territory here."
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9.5))
+  })
+
   ## Representative scenario for the stochastic check: alpha = 0.8
   ## (a plausible "near K" ecological-viability target), K high, crossed
   ## with BOTH r choices -- the PBR Rmax (theoretical max, what the
@@ -294,7 +372,9 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
   list(
     cc_table = cc_table,
     stoch_summary = stoch_summary,
+    sustainable_H_table = sustainable_H_table,
     fig_H_curve = fig_H_curve,
-    fig_stoch_check = fig_stoch_check
+    fig_stoch_check = fig_stoch_check,
+    fig_risk_sweep = fig_risk_sweep
   )
 }
