@@ -873,9 +873,12 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
   ## *M. daubentonii* and *E. fuscus* (0.23-0.71); p_breed centred on
   ## Safi's 0.87 with spread matching *E. fuscus*'s first-time-breeder to
   ## experienced-breeder range (0.64-0.98, this note's own established
-  ## ceiling); litter drawn Uniform across V. murinus's OWN documented
-  ## suburban-urban range (1.3-2.9) -- deliberately not widened using
-  ## confamilial litter data, which points toward smaller litters for most
+  ## ceiling); litter centred on 1.8 (suburban -- the Uzbekistan site is a
+  ## natural/suburban setting, not urban, per Paulo) via a Beta rescaled
+  ## onto V. murinus's own documented suburban-urban span (1.3-2.9), so
+  ## some mass still reaches toward the urban figure without the mean
+  ## being pulled up to it -- deliberately not widened using confamilial
+  ## litter data either, which points toward smaller litters for most
   ## Vespertilionidae, not larger (see the references note).
   envelope_dist <- function(mean, half_width_95) {
     sd_eq <- half_width_95 / 1.96
@@ -886,6 +889,21 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
   draw_s_juv   <- envelope_dist(leslie_s_juv, (0.71 - 0.23) / 2)
   draw_p_breed <- envelope_dist(leslie_p_breed, (0.98 - 0.64) / 2)
 
+  ## Litter: centred on 1.8 (suburban), not spread uniformly up to the
+  ## urban figure (2.9) -- Paulo, 2026-10: the Uzbekistan site is clearly
+  ## a natural/suburban setting, not urban, so weighting the distribution
+  ## toward urban-level fecundity would be the LESS cautious assumption
+  ## (it inflates lambda and hence H). Kept as a Beta rescaled onto the
+  ## full literature-documented span [1.3, 2.9] -- not a narrower
+  ## arbitrary band -- so some probability mass still reaches toward the
+  ## urban figure (colony classification is not certain), but the mean
+  ## and most of the mass sit at the suburban value this note uses
+  ## throughout.
+  litter_lo <- leslie_boundary_range_litter[1]; litter_hi <- leslie_boundary_range_litter[2]
+  litter_p_mean <- (leslie_litter - litter_lo) / (litter_hi - litter_lo)
+  litter_bp <- beta_params(litter_p_mean, 0.12 / litter_p_mean)
+  draw_litter <- function(n) litter_lo + (litter_hi - litter_lo) * rbeta(n, litter_bp$shape1, litter_bp$shape2)
+
   n_envelope_draws <- 200
   set.seed(pva_seed)
   envelope_draws <- tibble::tibble(
@@ -893,7 +911,7 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     s_adult = draw_s_adult(n_envelope_draws),
     s_juv   = draw_s_juv(n_envelope_draws),
     p_breed = draw_p_breed(n_envelope_draws),
-    litter  = runif(n_envelope_draws, leslie_boundary_range_litter[1], leslie_boundary_range_litter[2])
+    litter  = draw_litter(n_envelope_draws)
   ) %>%
     rowwise() %>%
     mutate(lambda = lambda_of_vitals(s_juv, s_adult, p_breed, litter)) %>%
