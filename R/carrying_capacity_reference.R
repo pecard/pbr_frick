@@ -1006,6 +1006,178 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
       theme(plot.subtitle = element_text(size = 9))
   })
 
+  ## ---- 8. Back to PVA-lite itself (R/pva_robustness.R's Section 4/7.5
+  ## baseline: N0 = nmin_assumed, NOT alpha*K; annual removal = each
+  ## project's own imposed PBR threshold; NO density dependence in the
+  ## baseline scenario -- that file's own comment flags unchecked 25-year
+  ## growth as "not biologically credible", but keeps it as the baseline
+  ## because Section 4/7.5 elsewhere in the real report use it that way).
+  ## Paulo, 2026-10: "se voltassemos a PVA lite agora com essa
+  ## parametrizacao, o que aconteceria a tendencia a 25 anos?"
+  ##
+  ## PVA-lite as it stands draws only environmental/demographic noise each
+  ## year around FIXED point vital rates (Safi's values, 10% CV). This
+  ## reruns its exact N0/removal/no-K setup, but every trajectory's vital
+  ## rates are first drawn from the SAME joint family/order-informed
+  ## envelope as Section 7 (litter centred on 1.8) and held fixed for that
+  ## trajectory's 25 years, with year-to-year environmental noise layered
+  ## on top as before -- so the resulting band pools parameter uncertainty
+  ## AND environmental stochasticity, not environmental noise alone.
+  ## K = Inf disables Section 7's density-dependent compensation (the CC
+  ## engine's density_factor is 1 - 2N/K, which -> 1 as K -> Inf), matching
+  ## PVA-lite's own "no density dependence" baseline exactly.
+  stable_dist_baseline_pvalite <- stable_dist_of_vitals(leslie_s_juv, leslie_s_adult_f, leslie_p_breed, leslie_litter)
+  n0_juv_pvalite <- round((nmin_assumed / 2) * stable_dist_baseline_pvalite[1])
+  n0_adult_pvalite <- (nmin_assumed / 2) - n0_juv_pvalite
+  quasi_ext_threshold_pvalite <- pva_quasi_extinction_fraction * nmin_assumed
+
+  pvalite_scenario_baseline <- "PVA-lite baseline (fixed Safi point vitals)"
+  pvalite_scenario_envelope <- "+ joint biological envelope (this note's broader uncertainty)"
+
+  pvalite_baseline_traj <- tidyr::crossing(project_thresholds, rep_id = seq_len(pva_n_reps)) %>%
+    rowwise() %>%
+    mutate(traj = list(simulate_constant_harvest_general(
+      n0_juv_pvalite, n0_adult_pvalite, pva_n_years, H = threshold, K = Inf,
+      s_juv = leslie_s_juv, s_adult = leslie_s_adult_f, p_breed = leslie_p_breed, litter = leslie_litter,
+      juv_mortality_ratio = juv_mortality_ratio
+    ))) %>%
+    ungroup() %>%
+    mutate(scenario = pvalite_scenario_baseline)
+
+  reps_per_envelope_draw <- 10
+  pvalite_envelope_traj <- tidyr::crossing(
+    envelope_draws %>% select(draw_id, s_juv, s_adult, p_breed, litter),
+    project_thresholds,
+    rep_id = seq_len(reps_per_envelope_draw)
+  ) %>%
+    rowwise() %>%
+    mutate(traj = list(simulate_constant_harvest_general(
+      n0_juv_pvalite, n0_adult_pvalite, pva_n_years, H = threshold, K = Inf,
+      s_juv = s_juv, s_adult = s_adult, p_breed = p_breed, litter = litter,
+      juv_mortality_ratio = juv_mortality_ratio
+    ))) %>%
+    ungroup() %>%
+    mutate(scenario = pvalite_scenario_envelope)
+
+  pvalite_combined_traj <- bind_rows(
+    pvalite_baseline_traj %>% select(project, threshold, rep_id, traj, scenario),
+    pvalite_envelope_traj %>% select(project, threshold, rep_id, traj, scenario)
+  )
+
+  pvalite_trend_summary <- pvalite_combined_traj %>%
+    rowwise() %>%
+    mutate(year = list(0:pva_n_years)) %>%
+    ungroup() %>%
+    tidyr::unnest(c(traj, year)) %>%
+    rename(N = traj) %>%
+    group_by(scenario, project, year) %>%
+    summarise(median = median(N), p10 = quantile(N, 0.10), p90 = quantile(N, 0.90), .groups = "drop") %>%
+    mutate(scenario = factor(scenario, levels = c(pvalite_scenario_baseline, pvalite_scenario_envelope)))
+
+  pvalite_trend_risk <- pvalite_combined_traj %>%
+    rowwise() %>%
+    mutate(final_N = traj[length(traj)], ever_below_quasi_ext = any(traj < quasi_ext_threshold_pvalite)) %>%
+    ungroup() %>%
+    group_by(scenario, project) %>%
+    summarise(
+      n_trajectories = dplyr::n(),
+      p_decline = round(100 * mean(final_N < nmin_assumed)),
+      p_quasi_extinction = round(100 * mean(ever_below_quasi_ext)),
+      median_final_N = round(median(final_N)),
+      .groups = "drop"
+    ) %>%
+    mutate(scenario = factor(scenario, levels = c(pvalite_scenario_baseline, pvalite_scenario_envelope)))
+
+  fig_pvalite_envelope <- file.path(fig_dir, "carrying_capacity_pvalite_envelope.png")
+  ggsave(fig_pvalite_envelope, width = 10.5, height = 6.5, dpi = 150, bg = "white", plot = {
+    ggplot(pvalite_trend_summary, aes(x = year, y = median, colour = scenario, fill = scenario)) +
+      geom_ribbon(aes(ymin = p10, ymax = p90), alpha = 0.18, colour = NA) +
+      geom_line(linewidth = 1) +
+      geom_hline(yintercept = nmin_assumed, linetype = "dotted", colour = "grey30") +
+      geom_hline(yintercept = quasi_ext_threshold_pvalite, linetype = "dotted", colour = "firebrick") +
+      facet_wrap(~project) +
+      scale_colour_manual(name = NULL, values = setNames(c("steelblue", "darkorange"),
+                                                           c(pvalite_scenario_baseline, pvalite_scenario_envelope))) +
+      scale_fill_manual(name = NULL, values = setNames(c("steelblue", "darkorange"),
+                                                         c(pvalite_scenario_baseline, pvalite_scenario_envelope))) +
+      labs(
+        x = "Year", y = "Population size (median, 10-90th percentile band)",
+        title = "PVA-lite's 25-year trend, fixed Safi point vitals vs. the joint biological envelope",
+        subtitle = paste0(
+          "N0 = Nmin = ", format(nmin_assumed, big.mark = ","), " (dotted grey); removal = each project's own imposed PBR\n",
+          "threshold; no density dependence, matching PVA-lite's own baseline. Dotted red: quasi-extinction (",
+          round(100 * pva_quasi_extinction_fraction), "% of N0)."
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 9), legend.position = "bottom")
+  })
+
+  ## ---- 9. Updating Section 6's risk-vs-H comparison with the literature-
+  ## grounded survival CEILING, not a breakeven-forced value. Paulo,
+  ## 2026-10: "como e que ficaria a Curva P(quasi-extincao) vs H: baseline
+  ## (r realista) vs. cenario plausivel (S_adult e lambda)" -- now that the
+  ## references update (Section 5 of leslie_matrix_parametrisation.md)
+  ## shows the Lentini et al. (2015) order-wide meta-analysis' own 95% CI
+  ## upper bound for adult female survival (0.890, 44 species/7 families)
+  ## sits BELOW the S_adult=0.949 Section 6 used -- a value forced to hit
+  ## lambda=1.20 exactly, which no literature source actually reports, not
+  ## a real estimate. The honest question is not "what survival would it
+  ## take to reach Frick's benchmark" but "what does the best cross-
+  ## species-supported survival estimate alone actually buy", holding the
+  ## other three vital rates at Safi's baseline as Section 6 did.
+  literature_ceiling_s_adult <- 0.890  # Lentini et al. 2015 order-wide 95% CI upper bound
+  literature_ceiling_vitals <- baseline_vitals
+  literature_ceiling_vitals$s_adult <- literature_ceiling_s_adult
+  literature_ceiling_lambda <- do.call(lambda_of_vitals, literature_ceiling_vitals)
+  literature_ceiling_H <- find_sustainable_H_general(
+    N_target_elastic, K_elastic, s_juv = literature_ceiling_vitals$s_juv, s_adult = literature_ceiling_vitals$s_adult,
+    p_breed = literature_ceiling_vitals$p_breed, litter = literature_ceiling_vitals$litter,
+    acceptable_risk = 0.10, juv_mortality_ratio = juv_mortality_ratio
+  )$H_sustainable
+
+  sweep_H_max_litceiling <- literature_ceiling_H * 1.3
+  sweep_dt_litceiling <- tibble::tibble(H = seq(0, sweep_H_max_litceiling, length.out = 18)) %>%
+    rowwise() %>%
+    mutate(p_collapse = run_risk_general(sweep_N_target, H, sweep_K, s_juv = literature_ceiling_vitals$s_juv,
+                                          s_adult = literature_ceiling_vitals$s_adult, p_breed = literature_ceiling_vitals$p_breed,
+                                          litter = literature_ceiling_vitals$litter, juv_mortality_ratio = juv_mortality_ratio,
+                                          n_reps = 400)) %>%
+    ungroup()
+
+  scenario_litceiling <- paste0("S_adult=", literature_ceiling_s_adult,
+                                 " (Lentini et al. 2015 order-wide 95% CI upper bound, lambda=",
+                                 round(literature_ceiling_lambda, 3), ")")
+  sweep_dt_litceiling_combined <- bind_rows(
+    sweep_dt %>% mutate(scenario = scenario_realistic),
+    sweep_dt_litceiling %>% mutate(scenario = scenario_litceiling)
+  )
+
+  fig_risk_sweep_litceiling <- file.path(fig_dir, "carrying_capacity_risk_sweep_litceiling.png")
+  ggsave(fig_risk_sweep_litceiling, width = 9.5, height = 5.5, dpi = 150, bg = "white", plot = {
+    ggplot(sweep_dt_litceiling_combined, aes(x = H, y = p_collapse, colour = scenario)) +
+      geom_line(linewidth = 0.9) +
+      geom_point(size = 1.8) +
+      geom_vline(xintercept = literature_ceiling_H, linetype = "dashed", colour = "darkorange") +
+      geom_vline(data = project_thresholds, aes(xintercept = threshold), linetype = "dotted", colour = "grey40") +
+      geom_hline(data = tibble::tibble(acceptable_risk = acceptable_risk_grid * 100),
+                 aes(yintercept = acceptable_risk), linetype = "dotted", colour = "grey40") +
+      scale_colour_manual(name = NULL, values = setNames(c("steelblue", "darkorange"), c(scenario_realistic, scenario_litceiling))) +
+      annotate("text", x = literature_ceiling_H, y = 102, label = paste0("H sustainable\n(10% risk) = ", round(literature_ceiling_H)),
+               colour = "darkorange", size = 2.8, hjust = -0.05) +
+      labs(
+        x = "Constant annual removal H", y = "P(falls below quasi-extinction in 25 yr), %",
+        title = "Risk-vs-H curve: realistic-r baseline vs. the literature-grounded survival ceiling (not a breakeven-forced value)",
+        subtitle = paste0(
+          "S_adult capped at the Lentini et al. (2015) order-wide meta-analysis' own 95% CI upper bound (0.890), not the\n",
+          "S_adult=0.949 forced to hit lambda=1.20 exactly -- that value sat ABOVE every literature estimate found, this one doesn't.\n",
+          "Resulting lambda=", round(literature_ceiling_lambda, 3), ", still below both PBR Rmax benchmarks (1.20/1.24)."
+        )
+      ) +
+      theme_minimal() +
+      theme(plot.subtitle = element_text(size = 8.3), legend.position = "bottom")
+  })
+
   list(
     cc_table = cc_table,
     stoch_summary = stoch_summary,
@@ -1018,6 +1190,8 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     envelope_draws = envelope_draws,
     H_envelope_percentiles = H_envelope_percentiles,
     risk_at_pbr_summary = risk_at_pbr_summary,
+    pvalite_trend_summary = pvalite_trend_summary,
+    pvalite_trend_risk = pvalite_trend_risk,
     fig_H_curve = fig_H_curve,
     fig_stoch_check = fig_stoch_check,
     fig_risk_sweep = fig_risk_sweep,
@@ -1026,6 +1200,10 @@ run_carrying_capacity_reference <- function(fig_dir, nmin_assumed,
     fig_elasticity_vitals = fig_elasticity_vitals,
     fig_tornado = fig_tornado,
     fig_envelope_H = fig_envelope_H,
-    fig_envelope_risk_at_pbr = fig_envelope_risk_at_pbr
+    fig_envelope_risk_at_pbr = fig_envelope_risk_at_pbr,
+    fig_pvalite_envelope = fig_pvalite_envelope,
+    literature_ceiling_lambda = literature_ceiling_lambda,
+    literature_ceiling_H = literature_ceiling_H,
+    fig_risk_sweep_litceiling = fig_risk_sweep_litceiling
   )
 }
