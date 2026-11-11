@@ -1,0 +1,204 @@
+---
+title: "Application of a new PBR framework and how it can be translated into operational decisions for bat curtailment"
+subtitle: "Restricted workshop on bat mortality thresholds — an anonymised case study: operational curtailment under lender-imposed, EU-aligned thresholds for the Parti-coloured bat (Vespertilio murinus) at an emerging-market wind facility"
+author: "Paulo Cardoso"
+output:
+  powerpoint_presentation:
+    slide_level: 2
+    reference_doc: pbr_workshop_reference.pptx
+params:
+  fig_turbine_curtailment: "outputs/figures/deck_turbine_curtailment.png"
+  fig_reduction_results:   "outputs/figures/deck_reduction_results.png"
+  fig_lambda_elasticity:   "outputs/figures/deck_lambda_elasticity.png"
+  fig_nmin_range:          "outputs/figures/deck_nmin_range.png"
+  fig_schaefer_curve:      "outputs/figures/deck_schaefer_curve.png"
+  fig_cc_vs_pbr:           "outputs/figures/deck_cc_vs_pbr.png"
+  fig_fcs_spectrum:        "outputs/figures/deck_fcs_spectrum.png"
+  site_a: "Site A"
+  site_b: "Site B"
+  threshold_a: 112
+  threshold_b: 88
+  assessed_a: 68
+  assessed_b: 27
+  curtailed_a: 17
+  curtailed_b: 7
+  cut_in_ms: 6.5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+<!--
+Mirrors the rest of this project's convention (R computes, the Rmd only
+formats): every number and figure path here comes from params, set by
+R/workshop_deck_figures.R + inputs/deckSettings_workshop.R via
+run_workshop_deck.R. Restyle by editing deck_plot_controls there, not
+this file; re-run the launcher to regenerate every figure and re-render.
+-->
+
+## An unanticipated threshold, enforced by financiers
+
+:::::: columns
+::: column
+- Operating wind facility in an emerging-market jurisdiction: national wildlife legislation does not yet set species-specific mortality limits for bats
+- Project financing requires compliance with lender performance standards that mirror EU biodiversity norms in substance, if not in legal force
+- Fixed annual bat-fatality thresholds were imposed per site by that process, with no documented derivation available
+- Year 1 of operation: observed mortality exceeded what was operationally acceptable -- an emergency operational response was required, not anticipated at design stage
+:::
+
+::: column
+**Two standards, one project**
+
+No binding national species-mortality limit
+
+&#8595;
+
+Lender-imposed, EU-aligned threshold applied anyway
+:::
+::::::
+
+## Potential Biological Removal as the operational anchor
+
+:::::: columns
+::: column
+- With no documented derivation for the imposed thresholds, and no independent local-abundance estimate for the species, the analysis works backwards from the numbers already in force
+- Frick et al. (2026) adapt the classical, marine-mammal-derived PBR concept to bat mortality at wind facilities -- addressing low fecundity, delayed maturity and high sensitivity to adult survival
+- PBR becomes the shared language for reverse-engineering what assumptions the imposed thresholds are implicitly consistent with
+:::
+
+::: column
+**PBR = ½ · Rmax · Fr · Nmin**
+
+- Rmax = λmax − 1 -- maximum population growth rate
+- Fr -- recovery factor, linked to IUCN status
+- Nmin -- conservative lower-bound local abundance
+
+λmax standardised via the Niel & Lebreton (2005) demographic-invariant approximation from adult survival (s) and age at first breeding (α).
+:::
+::::::
+
+## Concentrating mitigation where the risk concentrates
+
+:::::: columns
+::: column
+- Turbines ranked by estimated pre-curtailment mortality at each site
+- Curtailment (cut-in raised to `r params$cut_in_ms` m/s) applied to the highest-risk subset, selected up to ~50% of a baseline season's cumulative estimated mortality
+- A minority of turbines, not a flat fleet-wide rule -- mitigation effort follows where mortality actually concentrates
+:::
+
+::: column
+![](`r params$fig_turbine_curtailment`)
+:::
+::::::
+
+## Observed mortality fell well below the no-curtailment counterfactual
+
+:::::: columns
+::: column
+![](`r params$fig_reduction_results`)
+:::
+
+::: column
+**Reading the result**
+
+- Comparison is against each site's own 2025 (pre-curtailment) seasonal pattern, projected forward without intervention
+- Turbines were deliberately curtailed because of high historical mortality, not assigned at random, and only one untreated reference year exists
+- This is operational effectiveness evidence, not a randomised causal estimate of curtailment efficacy
+:::
+::::::
+
+# What is PBR actually bounding?
+
+## A fixed λmax removes one uncertainty, not all of them
+
+:::::: columns
+::: column
+*Frick et al. (2026) is fast becoming the reference methodology for bat-mortality thresholds at wind facilities worldwide. It retains PBR's precautionary structure -- but several of its uncertainties are not resolved by a fixed λmax alone.*
+
+- λmax fixed at 1.24 (most bats) / 1.20 (later-maturing families) -- a precautionary ceiling, not a fitted, species-specific growth rate
+- But λmax is far more sensitive to adult survival than to age at first breeding -- and adult survival is among the least well-constrained parameters for most bat species
+- A fixed λmax controls one source of sensitivity; it does not remove the underlying uncertainty in how that ceiling was set
+:::
+
+::: column
+![](`r params$fig_lambda_elasticity`)
+:::
+::::::
+
+## The thresholds are not pinned down by a single assumption
+
+:::::: columns
+::: column
+- Backsolving the local abundance (Nmin) consistent with each imposed threshold, under Frick's own two fixed λmax benchmarks, gives a wide implied range -- not a single number
+- No shared population size reproduces both sites' thresholds under either benchmark
+- A plausible range is the honest answer here -- not a false precision inherited from reporting only one point estimate
+:::
+
+::: column
+![](`r params$fig_nmin_range`)
+:::
+::::::
+
+# Why anchor removal to a pessimistic Nmin, rather than to carrying capacity?
+
+## Sustainable removal near carrying capacity
+
+:::::: columns
+::: column
+*An alternative reference point: classic logistic (Schaefer) surplus-production logic.*
+
+A constant harvest H has a stable equilibrium at the population level N = α·K.
+
+**H(α) = r · K · α · (1 − α)**
+
+Staying close to K (an ecological-viability standard) implies a much smaller sustainable H than classic MSY at α = 0.5.
+:::
+
+::: column
+![](`r params$fig_schaefer_curve`)
+:::
+::::::
+
+## How far can plausible biology push the comparison? {.exploratory}
+
+:::::: columns
+::: column
+- Holding the most favourable adult-survival estimate found across this species and its closest relatives -- not the realistic rate -- the sustainable removal under a carrying-capacity standard rises markedly
+- It still falls short of either current imposed threshold, and nowhere near requires Frick's λmax benchmarks to hold
+- The comparison remains sensitive to which standard is adopted: distance-from-extinction (PBR) or distance-from-K (carrying capacity)
+
+*Exploratory -- not part of the reviewed technical note.*
+:::
+
+::: column
+![](`r params$fig_cc_vs_pbr`)
+:::
+::::::
+
+## FCS speaks the language of carrying capacity, not extinction
+
+:::::: columns
+::: column
+**Habitats Directive, Art. 1(i)**
+
+"Favourable" conservation status requires a population "maintaining itself ... as a viable component of its natural habitats", with "sufficiently large habitat to maintain its populations on a long-term basis."
+
+**Epstein, López-Bao & Chapron (2015)**
+
+Commission guidance frames FCS as "distance from a favourable state", not distance from extinction -- "it is more logically consistent to measure FCS from carrying capacity than from extinction."
+:::
+
+::: column
+![](`r params$fig_fcs_spectrum`)
+
+Current operational practice sits near the extinction end; the European legal frame points toward the opposite one.
+:::
+::::::
+
+## Open questions for the workshop
+
+1. Should an operational mortality threshold be required to state a plausible range, not a single point value?
+2. Where should the biological-envelope evidence come from when species-specific data are this thin -- congeneric or confamilial literature?
+3. Is an Nmin / distance-from-extinction standard (PBR), or a carrying-capacity / FCS-aligned standard, the right reference for projects held to EU-equivalent lender standards outside the EU?
+4. What would it take for an operational threshold to be defensible as FCS-aligned -- not merely precautionary?
