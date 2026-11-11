@@ -44,7 +44,7 @@ deck_lambda_max_benchmarks <- c(1.24, 1.20)
 ## explored range's lower/upper end (s in [0.70,0.95], alpha in [1.5,3.5]
 ## years) -- % change in lambda_max per 1% change in the parameter.
 deck_elasticity <- tibble::tibble(
-  parameter = c("Adult survival (s)", "Age at first breeding (alpha)"),
+  parameter = c("Adult survival (s)", "Age at first breeding (α)"),
   low       = c(-0.13, -0.06),
   high      = c(1.35, 0.22)
 )

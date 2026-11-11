@@ -16,6 +16,19 @@
 
 suppressPackageStartupMessages({ library(ggplot2); library(dplyr); library(tidyr); library(scales) })
 
+## This container's default locale is "C" (not UTF-8), under which the
+## graphics device silently renders Greek glyphs (lambda, alpha) as ".."
+## in every ggplot-saved PNG, even though the fonts installed (DejaVu
+## Sans) have full Greek coverage and the Rmd's own text is unaffected --
+## confirmed by direct comparison (Sys.getlocale("LC_CTYPE") "C" vs.
+## "C.utf8"). Setting LC_CTYPE once, here, fixes it at the source instead
+## of spelling every lambda/alpha out as a word in figure text.
+if (Sys.getlocale("LC_CTYPE") %in% c("C", "POSIX")) {
+  tryCatch(Sys.setlocale("LC_CTYPE", "C.utf8"), error = function(e) {
+    warning("Could not set LC_CTYPE to C.utf8 -- Greek glyphs (λ, α) in figures may render incorrectly: ", conditionMessage(e))
+  })
+}
+
 ## ---- Shared theme -- the one place that reads base_size/title_size/
 ## subtitle_show, so every figure in the deck stays visually consistent
 ## when Paulo tunes the controls list. ------------------------------------
@@ -110,9 +123,9 @@ plot_lambda_elasticity <- function(elasticity, controls) {
     geom_text(aes(x = high, label = sprintf("%.2f", high)), vjust = -1.1, size = controls$label_size, colour = controls$colour_primary) +
     geom_vline(xintercept = 0, colour = "grey50", linewidth = 0.4) +
     deck_labs(controls,
-      title = "Elasticity of lambda_max",
+      title = "Elasticity of λmax",
       subtitle = "% change per 1% parameter change -- low (sky) to high (teal) end of the explored range",
-      caption = "s in [0.70, 0.95]; alpha in [1.5, 3.5] years (Niel & Lebreton 2005 sensitivity analysis)."
+      caption = "s in [0.70, 0.95]; α in [1.5, 3.5] years (Niel & Lebreton 2005 sensitivity analysis)."
     ) +
     deck_theme(controls)
 }
@@ -122,7 +135,7 @@ plot_lambda_elasticity <- function(elasticity, controls) {
 ## =========================================================================
 plot_nmin_range <- function(nmin_range, controls) {
   dt <- nmin_range %>%
-    mutate(lambda_label = paste0("lambda_max = ", lambda_max)) %>%
+    mutate(lambda_label = paste0("λmax = ", lambda_max)) %>%
     group_by(site) %>%
     mutate(site = factor(site, levels = rev(unique(site)))) %>%
     ungroup()
@@ -137,7 +150,7 @@ plot_nmin_range <- function(nmin_range, controls) {
     scale_colour_manual(values = setNames(c(controls$colour_secondary, controls$colour_primary), unique(dt$lambda_label))) +
     scale_x_continuous(labels = comma) +
     deck_labs(controls,
-      title = "Implied local abundance (Nmin), by lambda_max benchmark",
+      title = "Implied local abundance (Nmin), by λmax benchmark",
       subtitle = "No single population size reproduces both sites' thresholds",
       caption = "Under Fr = 0.3 (Near Threatened); values floored to the nearest 100 individuals."
     ) +
@@ -155,12 +168,12 @@ plot_schaefer_curve <- function(controls, n = 200) {
   ggplot(dt, aes(x = alpha, y = H)) +
     geom_line(colour = controls$colour_primary, linewidth = controls$line_width * 1.3) +
     geom_vline(xintercept = msy_x, linetype = "dotted", colour = "grey60") +
-    annotate("text", x = msy_x, y = max(dt$H) * 1.04, label = "alpha = 0.5 (MSY)", size = controls$label_size, colour = controls$colour_muted) +
-    annotate("text", x = 0.92, y = max(dt$H) * 0.12, label = "alpha near 1\n(near K)", size = controls$label_size, colour = controls$colour_muted) +
+    annotate("text", x = msy_x, y = max(dt$H) * 1.04, label = "α = 0.5 (MSY)", size = controls$label_size, colour = controls$colour_muted) +
+    annotate("text", x = 0.92, y = max(dt$H) * 0.12, label = "α near 1\n(near K)", size = controls$label_size, colour = controls$colour_muted) +
     scale_x_continuous(labels = NULL) +
     scale_y_continuous(labels = NULL) +
     deck_labs(controls,
-      title = "Sustainable removal H(alpha) = r*K*alpha*(1-alpha)",
+      title = "Sustainable removal H(α) = r·K·α·(1−α)",
       subtitle = "Schematic -- not fitted to this project's data",
       caption = NULL
     ) +
@@ -189,7 +202,7 @@ plot_cc_vs_pbr <- function(cc_comparison, thresholds, controls) {
     deck_labs(controls,
       title = "Simulated sustainable H vs. imposed thresholds",
       subtitle = "Exploratory -- not part of the reviewed technical note",
-      caption = "Age-structured, stochastic simulation at an alpha=0.8 target; values floored."
+      caption = "Age-structured, stochastic simulation at an α=0.8 target; values floored."
     ) +
     deck_theme(controls) +
     theme(axis.text.y = element_blank(), panel.grid.major.y = element_blank())
