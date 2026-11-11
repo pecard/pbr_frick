@@ -42,6 +42,65 @@ deck_reduction_pct <- tibble::tibble(
   pct_reduction_vs_counterfactual = c(88, 53)   # % vs 2025 no-curtailment reference
 )
 
+## ---- Chapter 7 rationale (source: pbr_frick_technical_note_BSH_DGY.docx,
+## Revision 17, Sections 7.1-7.4) -- replaces the old slides 5-6 with the
+## fuller operational story: why an annual limit alone can't drive an
+## in-season response, the 2026 mortality position read two ways (year-
+## to-date vs. year-over-year), whether a simple turbine ranking recovers
+## the real lender-agreed selection, and why that check is what drove this
+## note to abandon a single shared GenEst correction factor for two
+## project-specific ones. Large mortality/carcass counts floored to the
+## nearest 10 (Paulo's rounding rule); percentages, ratios (floored to 1
+## decimal) and small turbine counts left exact, as elsewhere in this file.
+
+## 2026 year-to-date V. murinus mortality (through ISO week 39) against
+## the annual PBR reference (Section 7.2's first table).
+deck_ytd_status <- tibble::tibble(
+  site             = deck_facility_labels,
+  annual_reference = c(112, 88),
+  raw_carcasses    = c(80, 30),
+  genest_corrected = c(380, 240),
+  pct_of_reference = c(344, 275)
+)
+
+## Year-over-year comparison, GenEst-corrected mortality through the same
+## ISO week (39) in each year (Section 7.2's second table).
+deck_yoy <- tibble::tibble(
+  site        = deck_facility_labels,
+  y2025       = c(940, 250),
+  y2026       = c(380, 240),
+  pct_change  = c(-59, -5)
+)
+
+## Turbine-level retrospective validation: independent replication (raw
+## carcasses + this note's own working correction factor) against the
+## official, lender-agreed selection (Section 7.3's first table). Counts
+## left exact -- small integers, a 50%-cumulative-mortality selection rule.
+deck_turbine_validation <- tibble::tibble(
+  site                  = deck_facility_labels,
+  officially_selected   = c(17, 7),
+  independently_selected = c(18, 8),
+  selected_by_both      = c(14, 5),
+  jaccard               = c(0.67, 0.50),
+  pct_official_recovered = c(82, 71),
+  pct_mortality_captured = c(87, 76)
+)
+
+## Implied GenEst correction ratio (official GenEst estimate / matching raw
+## carcass count), per turbine vs. the aggregate (mortality-weighted)
+## ratio this note actually uses -- Section 7.3's second table, the
+## finding that drove abandoning a single flat/combined factor. Ratios
+## floored to 1 decimal.
+deck_genest_ratio <- tibble::tibble(
+  site            = deck_facility_labels,
+  median_per_turbine = c(4.0, 5.7),
+  min_per_turbine     = c(2.8, 3.9),
+  max_per_turbine     = c(9.7, 12.9),
+  aggregate_ratio     = c(4.6, 6.2)
+)
+deck_genest_rejected_flat   <- 4.0   # the flat factor rejected after this check
+deck_genest_combined_median <- 4.3   # combined per-turbine median across both projects
+
 ## ---- Frick/PBR reverse-engineering facts (same source) -----------------
 deck_lambda_max_benchmarks <- c(1.24, 1.20)
 

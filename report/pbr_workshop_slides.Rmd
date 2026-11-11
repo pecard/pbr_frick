@@ -7,22 +7,15 @@ output:
     slide_level: 2
     reference_doc: pbr_workshop_reference.pptx
 params:
-  fig_turbine_curtailment: "outputs/figures/deck_turbine_curtailment.png"
   fig_reduction_results:   "outputs/figures/deck_reduction_results.png"
+  fig_control_chart:       "outputs/figures/deck_control_chart.png"
+  fig_ytd_vs_yoy:          "outputs/figures/deck_ytd_vs_yoy.png"
+  fig_turbine_validation:  "outputs/figures/deck_turbine_validation.png"
   fig_lambda_elasticity:   "outputs/figures/deck_lambda_elasticity.png"
   fig_nmin_range:          "outputs/figures/deck_nmin_range.png"
   fig_schaefer_curve:      "outputs/figures/deck_schaefer_curve.png"
   fig_cc_vs_pbr:           "outputs/figures/deck_cc_vs_pbr.png"
   fig_fcs_spectrum:        "outputs/figures/deck_fcs_spectrum.png"
-  site_a: "Project 1"
-  site_b: "Project 2"
-  threshold_a: 112
-  threshold_b: 88
-  assessed_a: 68
-  assessed_b: 27
-  curtailed_a: 17
-  curtailed_b: 7
-  cut_in_ms: 6.5
 ---
 
 ```{r setup, include=FALSE}
@@ -101,17 +94,47 @@ where D = (s − sα − α − 1)² − 4sα²
 :::
 ::::::
 
-## Concentrating mitigation where the risk concentrates
+## A Poisson-based weekly control chart, not an annual pass/fail line
 
 :::::: columns
 ::: column
-- Turbines ranked by estimated pre-curtailment mortality at each site
-- Curtailment (cut-in raised to `r params$cut_in_ms` m/s) applied to the highest-risk subset, selected up to ~50% of a baseline season's cumulative estimated mortality
-- A minority of turbines, not a flat fleet-wide rule -- mitigation effort follows where mortality actually concentrates
+- Mortality risk concentrates in migration windows -- a flat, linear share of the annual reference misreads how much of the season's risk has already passed
+- The annual reference is converted into an expected cumulative trajectory (same seasonal shape as mortality itself), with Poisson-based statistical control limits around it
+- Each tier maps to an escalation step on the turbines already identified as critical: maintain (GREEN) / intensify, e.g. a lower cut-in (AMBER) / escalate to a wider subset and the most conservative cut-in, and trigger a structured review (RED)
 :::
 
 ::: column
-![](`r params$fig_turbine_curtailment`)
+![](`r params$fig_control_chart`)
+:::
+::::::
+
+## 2026 mortality position: two different questions, two different answers
+
+:::::: columns
+::: column
+Reading year-to-date and year-over-year together is what resolves what would otherwise look like two inconsistent percentages for the same intervention.
+
+- Both projects' 2026 corrected estimate already exceeds the annual reference for the year to date -- driven overwhelmingly by the weeks *before* curtailment began on 5 May, not by the response itself
+- Read year-over-year instead, through the same week: Project 1 is 59% lower than the equivalent 2025 period; Project 2 only 5% lower -- a real reduction at both, but markedly smaller at the second, worth watching
+:::
+
+::: column
+![](`r params$fig_ytd_vs_yoy`)
+:::
+::::::
+
+## Does a simple turbine ranking recover the real selection?
+
+:::::: columns
+::: column
+The turbines actually curtailed were selected under a separate, lender-agreed GenEst procedure -- not this note's own methodology. Two checks against that real selection, on the same slide.
+
+- An independent ranking (raw carcasses + this note's own working factor) recovers most of the real selection, and a larger share of its mortality than of its turbine count
+- That same check is what drove replacing a single flat/combined GenEst factor with two project-specific ones: Project 2's true aggregate ratio (6.2x) sits well above what a shared 4x or 4.3x median would have assumed, understating its corrected mortality by roughly a third
+:::
+
+::: column
+![](`r params$fig_turbine_validation`)
 :::
 ::::::
 
@@ -125,9 +148,9 @@ where D = (s − sα − α − 1)² − 4sα²
 ::: column
 **Reading the result**
 
-- Comparison is against each site's own 2025 (pre-curtailment) seasonal pattern, projected forward without intervention
+- This asks a different, more targeted question: only the operational weeks the response has actually been running, not the full year (which includes months of pre-curtailment mortality)
 - Turbines were deliberately curtailed because of high historical mortality, not assigned at random, and only one untreated reference year exists
-- This is operational effectiveness evidence, not a randomised causal estimate of curtailment efficacy
+- This is operational effectiveness evidence, not a randomised causal estimate of curtailment efficacy -- and a checkpoint (21 weeks of real 2026 data so far), not a final verdict
 :::
 ::::::
 

@@ -19,16 +19,7 @@ rmarkdown::render(
   input       = "report/pbr_workshop_slides.Rmd",
   output_file = "pbr_curtailment_workshop_slides.pptx",
   output_dir  = "outputs",
-  params = c(
-    fig_paths,
-    list(
-      site_a = deck_facility_labels[1], site_b = deck_facility_labels[2],
-      threshold_a = deck_thresholds$threshold[1], threshold_b = deck_thresholds$threshold[2],
-      assessed_a = deck_turbines$assessed[1], assessed_b = deck_turbines$assessed[2],
-      curtailed_a = deck_turbines$curtailed[1], curtailed_b = deck_turbines$curtailed[2],
-      cut_in_ms = deck_cut_in_speed_ms
-    )
-  )
+  params = fig_paths
 )
 
 message("\nWrote outputs/pbr_curtailment_workshop_slides.pptx\n")

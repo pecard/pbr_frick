@@ -14,7 +14,7 @@
 ## project already standardised on).
 ##
 
-suppressPackageStartupMessages({ library(ggplot2); library(dplyr); library(tidyr); library(scales) })
+suppressPackageStartupMessages({ library(ggplot2); library(dplyr); library(tidyr); library(scales); library(patchwork) })
 
 ## This container's default locale is "C" (not UTF-8), under which the
 ## graphics device silently renders Greek glyphs (lambda, alpha) as ".."
@@ -234,20 +234,177 @@ plot_fcs_spectrum <- function(controls, pbr_x = 0.18, fcs_x = 0.85) {
 }
 
 ## =========================================================================
+## Chapter 7 rationale (Paulo, 2026-11): replaces the old turbine-count
+## and reduction-only slides with the fuller operational story --
+## Sections 7.1-7.4 of the real technical note.
+## =========================================================================
+
+## ---- New slide A -- schematic weekly control chart (Section 7.1's
+## mechanism). No real weekly PCFM series is available in this
+## environment (gitignored, local-only raw data), so this is explicitly
+## a SCHEMATIC of the mechanism -- a generic seasonal cumulative-mortality
+## shape with illustrative control limits -- not this project's own real
+## weekly trajectory. Flagged as such in the figure itself, consistent
+## with this deck's other conceptual (not fitted) diagrams.
+plot_control_chart_schematic <- function(controls, n = 200) {
+  t <- seq(0, 52, length.out = n)
+  seasonal_shape <- function(x) pmax(0, sin(pmax(0, x - 14) / 10 * pi)) * exp(-((x - 24)^2) / 220) +
+    pmax(0, sin(pmax(0, x - 34) / 8 * pi)) * exp(-((x - 40)^2) / 90)
+  raw <- seasonal_shape(t)
+  expected_cum <- cumsum(raw) / sum(raw) * 100
+  upper_amber <- pmin(100, expected_cum * 1.15 + 3)
+  upper_red   <- pmin(115, expected_cum * 1.32 + 6)
+  actual <- pmin(118, expected_cum * 1.30 + ifelse(t > 10, 8, 0) * pmax(0, (t - 10) / 15))
+
+  dt <- tibble::tibble(week = t, expected = expected_cum, amber = upper_amber, red = upper_red, actual = actual)
+
+  ggplot(dt, aes(x = week)) +
+    geom_ribbon(aes(ymin = 0, ymax = expected), fill = "#D7E4EC", alpha = 0.6) +
+    geom_ribbon(aes(ymin = expected, ymax = amber), fill = controls$colour_accent, alpha = 0.25) +
+    geom_ribbon(aes(ymin = amber, ymax = red), fill = "firebrick", alpha = 0.18) +
+    geom_line(aes(y = expected), colour = controls$colour_muted, linewidth = 0.8, linetype = "dashed") +
+    geom_line(aes(y = actual), colour = controls$colour_dark, linewidth = 1.2) +
+    geom_vline(xintercept = 18, linetype = "dotted", colour = controls$colour_primary) +
+    annotate("text", x = 18.5, y = 5, label = "Curtailment\nstarts", hjust = 0, size = controls$label_size, colour = controls$colour_primary) +
+    annotate("text", x = 46, y = 18, label = "GREEN\n(on pace)", size = controls$label_size * 0.95, colour = controls$colour_muted) +
+    annotate("text", x = 46, y = 45, label = "AMBER\n(intensify)", size = controls$label_size * 0.95, colour = "#8a6410") +
+    annotate("text", x = 46, y = 80, label = "RED\n(escalate)", size = controls$label_size * 0.95, colour = "firebrick") +
+    scale_x_continuous(limits = c(0, 52), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, 118), expand = c(0, 0), labels = NULL) +
+    deck_labs(controls,
+      title = "A Poisson-based weekly control chart, not an annual pass/fail line",
+      subtitle = "Schematic of the mechanism -- not this project's own real weekly series",
+      caption = "Dark line: illustrative observed cumulative mortality. Dashed: expected seasonal pace."
+    ) +
+    deck_theme(controls) +
+    theme(panel.grid = element_blank(), axis.title.y = element_blank())
+}
+
+## ---- New slide B -- 2026 mortality position, two questions (Section
+## 7.2's two tables): year-to-date vs. the annual reference, and
+## year-over-year through the same ISO week. Two-panel patchwork so both
+## questions sit on one slide, side by side, exactly as the report poses
+## them together to resolve the apparent inconsistency between the two readings.
+plot_ytd_vs_yoy <- function(ytd, yoy, controls) {
+  p1 <- ytd %>%
+    select(site, `Annual reference` = annual_reference, `GenEst-corrected (2026 YTD)` = genest_corrected) %>%
+    pivot_longer(-site, names_to = "series", values_to = "value") %>%
+    mutate(series = factor(series, levels = c("Annual reference", "GenEst-corrected (2026 YTD)"))) %>%
+    ggplot(aes(x = site, y = value, fill = series)) +
+    geom_col(position = position_dodge(width = controls$bar_width + 0.08), width = controls$bar_width) +
+    geom_text(aes(label = comma(value)), position = position_dodge(width = controls$bar_width + 0.08),
+               vjust = -0.4, size = controls$label_size, colour = controls$colour_dark) +
+    scale_fill_manual(values = c("Annual reference" = controls$colour_dark, "GenEst-corrected (2026 YTD)" = controls$colour_primary)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+    labs(title = "Year-to-date vs. annual reference", subtitle = "Through ISO week 39", x = NULL, y = NULL, fill = NULL) +
+    deck_theme(controls) +
+    theme(axis.text.y = element_blank(), panel.grid.major.y = element_blank(), legend.position = "bottom",
+          plot.title = element_text(size = controls$base_size + 1, face = "bold", colour = controls$colour_dark),
+          plot.subtitle = element_text(size = controls$base_size * 0.75, colour = controls$colour_muted))
+
+  p2 <- yoy %>%
+    select(site, `2025` = y2025, `2026` = y2026) %>%
+    pivot_longer(-site, names_to = "year", values_to = "value") %>%
+    ggplot(aes(x = site, y = value, fill = year)) +
+    geom_col(position = position_dodge(width = controls$bar_width + 0.08), width = controls$bar_width) +
+    geom_text(aes(label = comma(value)), position = position_dodge(width = controls$bar_width + 0.08),
+               vjust = -0.4, size = controls$label_size, colour = controls$colour_dark) +
+    geom_text(data = yoy, aes(x = site, y = pmax(y2025, y2026) * 1.18, label = paste0(pct_change, "%")),
+               inherit.aes = FALSE, fontface = "bold", size = controls$label_size * 1.2, colour = controls$colour_accent) +
+    scale_fill_manual(values = c("2025" = controls$colour_secondary, "2026" = controls$colour_primary)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+    labs(title = "Year-over-year, same weeks", subtitle = "GenEst-corrected mortality", x = NULL, y = NULL, fill = NULL) +
+    deck_theme(controls) +
+    theme(axis.text.y = element_blank(), panel.grid.major.y = element_blank(), legend.position = "bottom",
+          plot.title = element_text(size = controls$base_size + 1, face = "bold", colour = controls$colour_dark),
+          plot.subtitle = element_text(size = controls$base_size * 0.75, colour = controls$colour_muted))
+
+  (p1 | p2)
+}
+
+## ---- New slide C -- turbine-level retrospective validation (Section
+## 7.3): does a simple raw-carcass ranking, corrected with this note's own
+## working factor, recover the real/official selection -- and why that
+## check is what drove using two project-specific GenEst correction
+## factors instead of one shared/flat one.
+plot_turbine_validation_summary <- function(validation, controls) {
+  validation %>%
+    select(site, `% recovered` = pct_official_recovered,
+           `% mortality captured` = pct_mortality_captured) %>%
+    pivot_longer(-site, names_to = "metric", values_to = "value") %>%
+    mutate(metric = factor(metric, levels = c("% recovered", "% mortality captured"))) %>%
+    ggplot(aes(x = site, y = value, fill = metric)) +
+    geom_col(position = position_dodge(width = controls$bar_width + 0.08), width = controls$bar_width) +
+    geom_text(aes(label = paste0(value, "%")), position = position_dodge(width = controls$bar_width + 0.08),
+               vjust = -0.4, size = controls$label_size, fontface = "bold", colour = controls$colour_dark) +
+    scale_fill_manual(values = c("% recovered" = controls$colour_secondary,
+                                  "% mortality captured" = controls$colour_primary)) +
+    scale_y_continuous(limits = c(0, 100), expand = expansion(mult = c(0, 0.12))) +
+    labs(title = "Turbine selection",
+         subtitle = "Independent ranking vs. official selection",
+         x = NULL, y = NULL, fill = NULL) +
+    deck_theme(controls) +
+    theme(axis.text.y = element_blank(), panel.grid.major.y = element_blank(), legend.position = "bottom",
+          legend.text = element_text(size = controls$base_size * 0.72))
+}
+
+plot_genest_ratio <- function(ratio, rejected_flat, combined_median, controls) {
+  dt <- ratio %>% mutate(site = factor(site, levels = rev(site)))
+  ggplot(dt) +
+    geom_segment(aes(x = min_per_turbine, xend = max_per_turbine, y = site, yend = site),
+                 colour = "grey70", linewidth = controls$line_width * 1.3) +
+    geom_point(aes(x = min_per_turbine, y = site), size = controls$point_size, colour = controls$colour_secondary) +
+    geom_point(aes(x = max_per_turbine, y = site), size = controls$point_size, colour = controls$colour_secondary) +
+    geom_point(aes(x = aggregate_ratio, y = site), size = controls$point_size + 1.5, colour = controls$colour_primary) +
+    geom_text(aes(x = aggregate_ratio, y = site, label = paste0(aggregate_ratio, "x")),
+              vjust = -1.3, size = controls$label_size, fontface = "bold", colour = controls$colour_primary) +
+    geom_vline(xintercept = rejected_flat, linetype = "dashed", colour = "firebrick") +
+    geom_vline(xintercept = combined_median, linetype = "dotted", colour = controls$colour_muted) +
+    scale_x_continuous(limits = c(0, max(dt$max_per_turbine) * 1.12),
+                        expand = expansion(mult = c(0, 0))) +
+    scale_y_discrete(expand = expansion(add = c(0.6, 0.9))) +
+    coord_cartesian(clip = "off") +
+    labs(title = "GenEst correction ratio",
+         subtitle = paste0("Per-turbine range (grey) vs. project aggregate (teal)\n",
+                            "Dashed = rejected flat ", rejected_flat, "x -- Dotted = combined median ", combined_median, "x"),
+         x = "Ratio (estimate / raw carcasses)", y = NULL) +
+    deck_theme(controls)
+}
+
+## Combined view for the deck: validation summary (left) + GenEst ratio
+## (right) on one slide, same patchwork convention as plot_ytd_vs_yoy().
+plot_turbine_validation_combined <- function(validation, ratio, rejected_flat, combined_median, controls) {
+  p1 <- plot_turbine_validation_summary(validation, controls) +
+    theme(plot.title = element_text(size = controls$base_size + 1, face = "bold", colour = controls$colour_dark),
+          plot.subtitle = element_text(size = controls$base_size * 0.72, colour = controls$colour_muted))
+  p2 <- plot_genest_ratio(ratio, rejected_flat, combined_median, controls) +
+    theme(plot.title = element_text(size = controls$base_size + 1, face = "bold", colour = controls$colour_dark),
+          plot.subtitle = element_text(size = controls$base_size * 0.72, colour = controls$colour_muted))
+
+  (p1 | p2)
+}
+
+## =========================================================================
 ## Render every figure the deck needs, at the settings in `controls`.
 ## Returns a named list of file paths (passed straight to the Rmd).
 ## =========================================================================
 build_workshop_deck_figures <- function(fig_dir, controls = deck_plot_controls,
                                           turbines = deck_turbines, reduction = deck_reduction_pct,
                                           elasticity = deck_elasticity, nmin_range = deck_nmin_range,
-                                          cc_comparison = deck_cc_comparison, thresholds = deck_thresholds) {
+                                          cc_comparison = deck_cc_comparison, thresholds = deck_thresholds,
+                                          ytd = deck_ytd_status, yoy = deck_yoy,
+                                          turbine_validation = deck_turbine_validation, genest_ratio = deck_genest_ratio) {
   dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
   fig_dir <- normalizePath(fig_dir, winslash = "/")
   controls$cut_in_speed_ms <- deck_cut_in_speed_ms
 
   list(
-    fig_turbine_curtailment = save_deck_figure(plot_turbine_curtailment(turbines, controls), file.path(fig_dir, "deck_turbine_curtailment.png"), controls),
     fig_reduction_results   = save_deck_figure(plot_reduction_results(reduction, controls), file.path(fig_dir, "deck_reduction_results.png"), controls),
+    fig_control_chart       = save_deck_figure(plot_control_chart_schematic(controls), file.path(fig_dir, "deck_control_chart.png"), controls),
+    fig_ytd_vs_yoy          = save_deck_figure(plot_ytd_vs_yoy(ytd, yoy, controls), file.path(fig_dir, "deck_ytd_vs_yoy.png"), controls,
+                                                height = controls$fig_height * 0.9),
+    fig_turbine_validation  = save_deck_figure(plot_turbine_validation_combined(turbine_validation, genest_ratio, deck_genest_rejected_flat, deck_genest_combined_median, controls),
+                                                file.path(fig_dir, "deck_turbine_validation.png"), controls, height = controls$fig_height * 0.9),
     fig_lambda_elasticity   = save_deck_figure(plot_lambda_elasticity(elasticity, controls), file.path(fig_dir, "deck_lambda_elasticity.png"), controls),
     fig_nmin_range          = save_deck_figure(plot_nmin_range(nmin_range, controls), file.path(fig_dir, "deck_nmin_range.png"), controls),
     fig_schaefer_curve      = save_deck_figure(plot_schaefer_curve(controls), file.path(fig_dir, "deck_schaefer_curve.png"), controls),
