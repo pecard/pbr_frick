@@ -16,7 +16,7 @@
 ## threshold, 112; second = 88). Project 1 = Bash WPP; Project 2 = Djangeldy
 ## WPP -- this mapping is the one thing that must stay fixed everywhere in
 ## this project, including in any new script or document (Paulo, 2026-09).
-facility_labels       <- c("Project 1", "Project 2")
+facility_labels       <- c("Bash WPP", "Djangeldy WPP")
 project_ref           <- paste(facility_labels, collapse = " & ")
 species_name          <- "Vespertilio murinus"
 species_common_name   <- "Parti-coloured bat"
