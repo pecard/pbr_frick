@@ -14,8 +14,8 @@ params:
   fig_schaefer_curve:      "outputs/figures/deck_schaefer_curve.png"
   fig_cc_vs_pbr:           "outputs/figures/deck_cc_vs_pbr.png"
   fig_fcs_spectrum:        "outputs/figures/deck_fcs_spectrum.png"
-  site_a: "Site A"
-  site_b: "Site B"
+  site_a: "Project 1"
+  site_b: "Project 2"
   threshold_a: 112
   threshold_b: 88
   assessed_a: 68

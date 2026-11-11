@@ -8,8 +8,11 @@
 ## demographic-invariant approximation.
 ##
 ## Reuses the project's own formulas (R/pbr_functions.R) and real
-## settings (inputs/pbrSettings_BSH_DGY.R) -- nothing here re-derives PBR,
-## it only sweeps and plots what those functions already compute.
+## threshold VALUES (inputs/pbrSettings_BSH_DGY.R) -- nothing here
+## re-derives PBR, it only sweeps and plots what those functions already
+## compute. Facility NAMES are this app's own fixed "Project 1"/"Project 2"
+## anonymisation, independent of that settings file's facility_labels
+## (see the note by project_thresholds below for why).
 ## Run with: shiny::runApp("shiny_pbr_simulator")
 ##
 
@@ -43,7 +46,20 @@ iucn_choices <- c(
   "Least Concern (stable or increasing)" = "Least Concern (stable or increasing)"
 )
 
-project_thresholds <- pbr_thresholds  # facility, threshold -- real imposed values
+## Facility NAMES shown here are this app's own fixed anonymisation
+## (Project 1 = Bash WPP = 112 bats/yr; Project 2 = Djangeldy WPP = 88
+## bats/yr -- the same mapping documented in inputs/pbrSettings_BSH_DGY.R),
+## kept independent of that shared file's own facility_labels, which
+## Paulo toggles between real and anonymised names depending on which
+## deliverable (the real technical note vs. an external/workshop context)
+## is being built. Decoupling this way means the simulator never
+## accidentally leaks whichever real/anonymised state that file happens
+## to be in -- only the real threshold VALUES (not identity-revealing)
+## are reused from it. Paulo, 2026-11: anonymise consistently everywhere.
+project_thresholds <- tibble::tibble(
+  facility  = c("Project 1", "Project 2"),
+  threshold = pbr_thresholds$threshold
+)
 
 ## ======================================================================
 ## UI

@@ -16,8 +16,13 @@
 ##
 
 ## ---- Anonymised facility labels & real operational facts (source:
-## pbr_frick_technical_note_BSH_DGY.docx, Revision 17) --------------------
-deck_facility_labels <- c("Site A", "Site B")
+## pbr_frick_technical_note_BSH_DGY.docx, Revision 17). Fixed mapping
+## (Paulo, 2026-11): Project 1 = Bash WPP = 112 bats/yr; Project 2 =
+## Djangeldy WPP = 88 bats/yr -- used consistently across every output
+## (deck, Shiny simulator), independent of inputs/pbrSettings_BSH_DGY.R's
+## own facility_labels, which Paulo toggles to real names for the actual
+## client/lender technical note. --------------------------------------
+deck_facility_labels <- c("Project 1", "Project 2")
 
 deck_thresholds <- tibble::tibble(
   site      = deck_facility_labels,
