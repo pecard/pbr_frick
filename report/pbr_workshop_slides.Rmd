@@ -78,6 +78,29 @@ Lender-imposed, EU-aligned threshold applied anyway
 :::
 ::::::
 
+## λmax from demography: the Niel & Lebreton (2005) approximation
+
+:::::: columns
+::: column
+- Niel & Lebreton (2005): a closed-form λmax approximation from just two demographic parameters -- adult survival (s) and age at first breeding (α) -- avoiding a full, poorly-constrained vital-rate schedule
+- Frick et al. (2026) use it to set PRECAUTIONARY, FIXED λmax values -- 1.24 (most bats), 1.20 (later-maturing families, e.g. Pteropodidae) -- not a fitted, species-specific growth rate
+- A documented, counterintuitive relationship: λmax *decreases* as adult survival or age at first breeding increase -- a life-history trade-off built into the approximation itself, not a sign of decline
+:::
+
+::: column
+**λmax(s, α) -- Niel & Lebreton (2005)**
+
+λmax ≈ [(sα − s + α + 1) + √D] / (2α)
+
+where D = (s − sα − α − 1)² − 4sα²
+
+- s -- adult survival (annual probability)
+- α -- age at first breeding (years)
+
+*The same two inputs behind every λmax value used in this note, fixed or realistic. λmax stays above 1 (a growing population) throughout the realistic range explored.*
+:::
+::::::
+
 ## Concentrating mitigation where the risk concentrates
 
 :::::: columns
